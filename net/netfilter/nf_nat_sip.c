@@ -193,7 +193,7 @@ static unsigned int nf_nat_sip(struct sk_buff *skb, unsigned int protoff,
 			      matchoff, matchlen, &addr, port))
 			return NF_DROP;
 
-		matchend = matchoff + matchlen;
+		matchend = matchoff + matchlen + *datalen - olen;
 
 		/* The maddr= parameter (RFC 2361) specifies where to send
 		 * the reply. */
