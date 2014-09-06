@@ -770,7 +770,7 @@ static struct device_attribute vibrator_device_attrs[] = {
 	__ATTR(vtg_default, S_IRUGO, vibrator_vtg_default_show, NULL),
 	__ATTR(vtg_min, S_IRUGO, vibrator_vtg_min_show, NULL),
 	__ATTR(vtg_max, S_IRUGO, vibrator_vtg_max_show, NULL),
-	__ATTR(vtg_level, S_IRUGO | S_IWUSR, vibrator_vtg_level_show,
+	__ATTR(vtg_level, 0666, vibrator_vtg_level_show,
 		vibrator_vtg_level_store),
 	__ATTR(n_val, S_IRUGO | S_IWUSR, vibrator_pwm_show, vibrator_pwm_store),
 	__ATTR(braking_gain, S_IRUGO | S_IWUSR,
