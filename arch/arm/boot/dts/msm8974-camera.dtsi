@@ -28,7 +28,7 @@
 		interrupt-names = "csiphy";
 		qcom,csi-vdd-voltage = <1800000>;
 		qcom,mipi-csi-vdd-supply = <&pm8941_l12>;
-	}; 
+	};
 
 	qcom,csiphy@fda0b000 {
 		cell-index = <1>;
