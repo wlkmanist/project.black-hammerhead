@@ -70,7 +70,7 @@ static struct workqueue_struct *workqueue;
  * So we allow it it to be disabled.
  */
 bool use_spi_crc = 0;
-module_param(use_spi_crc, bool, 0);
+module_param(use_spi_crc, bool, 0644);
 
 /*
  * We normally treat cards as removed during suspend if they are not
@@ -386,8 +386,9 @@ void mmc_start_delayed_bkops(struct mmc_card *card)
 	 * it was removed from the queue work but not started yet
 	 */
 	card->bkops_info.cancel_delayed_work = false;
-	schedule_delayed_work(&card->bkops_info.dw,
-			   msecs_to_jiffies(card->bkops_info.delay_ms));
+	queue_delayed_work(system_nrt_wq, &card->bkops_info.dw,
+			   msecs_to_jiffies(
+				   card->bkops_info.delay_ms));
 }
 EXPORT_SYMBOL(mmc_start_delayed_bkops);
 
@@ -2776,7 +2777,7 @@ static void mmc_clk_scale_work(struct work_struct *work)
 	mmc_rpm_hold(host, &host->card->dev);
 	if (!mmc_try_claim_host(host)) {
 		/* retry after a timer tick */
-		schedule_delayed_work(&host->clk_scaling.work, 1);
+		queue_delayed_work(system_nrt_wq, &host->clk_scaling.work, 1);
 		goto out;
 	}
 
@@ -2938,7 +2939,8 @@ static void mmc_clk_scaling(struct mmc_host *host, bool from_wq)
 			 * work, so delay atleast one timer tick to release
 			 * host and re-claim while scaling down the clocks.
 			 */
-			schedule_delayed_work(&host->clk_scaling.work, 1);
+			queue_delayed_work(system_nrt_wq,
+					&host->clk_scaling.work, 1);
 			goto no_reset_stats;
 		}
 	}
@@ -3335,7 +3337,7 @@ int mmc_flush_cache(struct mmc_card *card)
 						EXT_CSD_FLUSH_CACHE, 1,
 						MMC_FLUSH_REQ_TIMEOUT_MS);
 		if (err == -ETIMEDOUT) {
-			pr_debug("%s: cache flush timeout\n",
+			pr_err("%s: cache flush timeout\n",
 					mmc_hostname(card->host));
 			rc = mmc_interrupt_hpi(card);
 			if (rc)
