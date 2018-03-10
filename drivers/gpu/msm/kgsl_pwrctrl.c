@@ -18,6 +18,7 @@
 #include <mach/msm_iomap.h>
 #include <mach/msm_bus.h>
 #include <linux/ktime.h>
+#include <linux/delay.h>
 
 #include "kgsl.h"
 #include "kgsl_pwrscale.h"
@@ -473,17 +474,19 @@ static int kgsl_pwrctrl_gpuclk_show(struct device *dev,
 {
 	struct kgsl_device *device = kgsl_device_from_dev(dev);
 	struct kgsl_pwrctrl *pwr;
-	unsigned int level;
+	unsigned int pwrlevel;
 
-	if (device == NULL)
+	if (!device)
 		return 0;
+
 	pwr = &device->pwrctrl;
-	if (device->state == KGSL_STATE_SLUMBER)
-		level = pwr->num_pwrlevels - 1;
-	else
-		level = pwr->active_pwrlevel;
-	return snprintf(buf, PAGE_SIZE, "%d\n",
-			pwr->pwrlevels[level].gpu_freq);
+
+	/* GPU frequency in slumber mode equals the last power level's one */
+	pwrlevel = device->state != KGSL_STATE_SLUMBER
+			? pwr->active_pwrlevel
+			: pwr->num_pwrlevels - 1;
+
+	return scnprintf(buf, 12, "%u\n", pwr->pwrlevels[pwrlevel].gpu_freq);
 }
 
 static int kgsl_pwrctrl_idle_timer_store(struct device *dev,
