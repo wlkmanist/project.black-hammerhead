@@ -16,6 +16,10 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/notifier.h>
+#include <linux/cpufreq.h>
+#include <linux/cpu.h>
+#include <linux/kthread.h>
+#include <linux/sched.h>
 #include <linux/jiffies.h>
 #include <linux/kthread.h>
 #include <linux/moduleparam.h>
@@ -149,6 +153,7 @@ static int boost_adjust_notify(struct notifier_block *nb,
 		}
 
 		min = max(b_min, ib_min);
+		min = min(min, policy->max);
 
 		pr_debug("CPU%u policy min before boost: %u kHz\n",
 			 cpu, policy->min);
@@ -323,7 +328,10 @@ void do_app_launch_boost()
 	unsigned int i;
 	struct cpu_sync *i_sync_info;
 
-	if (!app_launch_boost_ms)
+	if (!cpu_boost_worker_thread)
+		return;
+
+ 	if (!app_launch_boost_ms)
 		return;
 
  	cancel_delayed_work_sync(&i_sync_info->input_boost_rem);
