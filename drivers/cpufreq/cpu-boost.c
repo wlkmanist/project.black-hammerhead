@@ -141,6 +141,15 @@ static int boost_adjust_notify(struct notifier_block *nb,
 		ib_min = min((s->input_boost_min == UINT_MAX ?
 			policy->max : s->input_boost_min), policy->max);
 
+		/*
+		 * If we're not resetting the boost and if the new boosted freq
+		 * is below or equal to the current min freq, bail early
+		 */
+		if (ib_min) {
+			if (ib_min <= policy->min)
+				break;
+		}
+
 		min = max(b_min, ib_min);
 
 		pr_debug("CPU%u policy min before boost: %u kHz\n",
