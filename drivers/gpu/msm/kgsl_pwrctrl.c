@@ -18,7 +18,6 @@
 #include <mach/msm_iomap.h>
 #include <mach/msm_bus.h>
 #include <linux/ktime.h>
-#include <linux/delay.h>
 
 #include "kgsl.h"
 #include "kgsl_pwrscale.h"
@@ -37,16 +36,6 @@
 #ifdef CONFIG_CPU_FREQ_GOV_ELEMENTALX
 int graphics_boost = 6;
 #endif
-
-/*
- * Expected delay for post-interrupt processing on A3xx.
- * The delay may be longer, gradually increase the delay
- * to compensate.  If the GPU isn't done by max delay,
- * it's working on something other than just the final
- * command sequence so stop waiting for it to be idle.
- */
-#define INIT_UDELAY		200
-#define MAX_UDELAY		2000
 
 struct clk_pair {
 	const char *name;
@@ -484,17 +473,17 @@ static int kgsl_pwrctrl_gpuclk_show(struct device *dev,
 {
 	struct kgsl_device *device = kgsl_device_from_dev(dev);
 	struct kgsl_pwrctrl *pwr;
+	unsigned int level;
+
 	if (device == NULL)
 		return 0;
-
 	pwr = &device->pwrctrl;
-
-	/* GPU frequency in slumber mode equals the last power level's one */
-	pwrlevel = device->state != KGSL_STATE_SLUMBER
-			? pwr->active_pwrlevel
-			: pwr->num_pwrlevels - 1;
-
-	return scnprintf(buf, 12, "%u\n", pwr->pwrlevels[pwrlevel].gpu_freq);
+	if (device->state == KGSL_STATE_SLUMBER)
+		level = pwr->num_pwrlevels - 1;
+	else
+		level = pwr->active_pwrlevel;
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			pwr->pwrlevels[level].gpu_freq);
 }
 
 static int kgsl_pwrctrl_idle_timer_store(struct device *dev,
@@ -1183,8 +1172,6 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
  */
 void kgsl_idle_check(struct work_struct *work)
 {
-	int delay = INIT_UDELAY;
-	int requested_state;
 	struct kgsl_device *device = container_of(work, struct kgsl_device,
 							idle_check_ws);
 	WARN_ON(device == NULL);
@@ -1198,29 +1185,11 @@ void kgsl_idle_check(struct work_struct *work)
 	if (device->state == KGSL_STATE_ACTIVE
 		   || device->state ==  KGSL_STATE_NAP) {
 		/*
-		 * If no user is explicitly trying to use the GPU
-		 * (active_cnt is zero), then loop with increasing delay,
-		 * waiting for the GPU to become idle.
-		 */
-		while (!atomic_read(&device->active_cnt) &&
-			(delay < MAX_UDELAY)) {
-			requested_state = device->requested_state;
-			if (!kgsl_pwrctrl_sleep(device))
-				break;
-			/*
-			 * If no new commands have been issued since the
-			 * last interrupt, stay in this loop waiting for
-			 * the GPU to become idle.
-			 */
-			if (!device->pwrctrl.irq_last)
-				break;
-			kgsl_pwrctrl_request_state(device, requested_state);
-			mutex_unlock(&device->mutex);
-			udelay(delay);
-			delay *= 2;
-			mutex_lock(&device->mutex);
-		}
-
+		 * If no user is explicitly trying to use the GPU,
+		 * try to sleep.
+		*/
+		if (!atomic_read(&device->active_cnt))
+			kgsl_pwrctrl_sleep(device);
 
 		kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 		if (device->state == KGSL_STATE_ACTIVE) {
@@ -1237,8 +1206,6 @@ void kgsl_idle_check(struct work_struct *work)
 				kgsl_pwrctrl_busy_time(device, true);
 				device->pwrctrl.clk_stats.no_nap_cnt = 0;
 			}
-		} else {
-			device->pwrctrl.irq_last = 0;
 		}
 	}
 
@@ -1486,10 +1453,7 @@ void kgsl_pwrctrl_enable(struct kgsl_device *device)
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	/* Order pwrrail/clk sequence based upon platform */
 	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_ON);
-
-	if (pwr->constraint.type == KGSL_CONSTRAINT_NONE)
-		kgsl_pwrctrl_pwrlevel_change(device, pwr->default_pwrlevel);
-
+	kgsl_pwrctrl_pwrlevel_change(device, pwr->default_pwrlevel);
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_ON, KGSL_STATE_ACTIVE);
 	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_ON);
 }
