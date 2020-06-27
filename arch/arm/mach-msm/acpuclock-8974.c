@@ -60,7 +60,7 @@ static struct scalable scalable[] __initdata = {
 		.vreg[VREG_CORE] = { "krait0",     1350000 },
 		.vreg[VREG_MEM]  = { "krait0_mem", 1050000 },
 		.vreg[VREG_DIG]  = { "krait0_dig", LVL_HIGH },
-		.vreg[VREG_HFPLL_A] = { "krait0_hfpll", 1820000 },
+		.vreg[VREG_HFPLL_A] = { "krait0_hfpll", 1830000 },
 	},
 	[CPU1] = {
 		.hfpll_phys_base = 0xF909A000,
@@ -69,7 +69,7 @@ static struct scalable scalable[] __initdata = {
 		.vreg[VREG_CORE] = { "krait1",     1350000 },
 		.vreg[VREG_MEM]  = { "krait1_mem", 1050000 },
 		.vreg[VREG_DIG]  = { "krait1_dig", LVL_HIGH },
-		.vreg[VREG_HFPLL_A] = { "krait1_hfpll", 1820000 },
+		.vreg[VREG_HFPLL_A] = { "krait1_hfpll", 1830000 },
 	},
 	[CPU2] = {
 		.hfpll_phys_base = 0xF90AA000,
@@ -78,7 +78,7 @@ static struct scalable scalable[] __initdata = {
 		.vreg[VREG_CORE] = { "krait2",     1350000 },
 		.vreg[VREG_MEM]  = { "krait2_mem", 1050000 },
 		.vreg[VREG_DIG]  = { "krait2_dig", LVL_HIGH },
-		.vreg[VREG_HFPLL_A] = { "krait2_hfpll", 1820000 },
+		.vreg[VREG_HFPLL_A] = { "krait2_hfpll", 1830000 },
 	},
 	[CPU3] = {
 		.hfpll_phys_base = 0xF90BA000,
@@ -87,13 +87,13 @@ static struct scalable scalable[] __initdata = {
 		.vreg[VREG_CORE] = { "krait3",     1350000 },
 		.vreg[VREG_MEM]  = { "krait3_mem", 1050000 },
 		.vreg[VREG_DIG]  = { "krait3_dig", LVL_HIGH },
-		.vreg[VREG_HFPLL_A] = { "krait3_hfpll", 1820000 },
+		.vreg[VREG_HFPLL_A] = { "krait3_hfpll", 1830000 },
 	},
 	[L2] = {
 		.hfpll_phys_base = 0xF9016000,
 		.l2cpmr_iaddr = 0x0500,
 		.sec_clk_sel = 2,
-		.vreg[VREG_HFPLL_A] = { "l2_hfpll", 1820000 },
+		.vreg[VREG_HFPLL_A] = { "l2_hfpll", 1830000 },
 	},
 };
 
@@ -903,9 +903,9 @@ static struct acpu_level acpu_freq_tbl_2p3g_pvs3[] __initdata = {
 	{ 1, { 2956800, HFPLL, 1, 154 }, L2(22), 1175000, 907 },/*    this clock and below    */
 	{ 1, { 2995200, HFPLL, 1, 156 }, L2(22), 1190000, 923 },/* with dangerous overloltage */
 	{ 1, { 3033600, HFPLL, 1, 158 }, L2(22), 1210000, 961 },/* used for extreme oc tests  */
-	{ 1, { 3072000, HFPLL, 1, 160 }, L2(22), 1235000, 977 },/* with active or TEC cooling */
-	{ 1, { 3110400, HFPLL, 1, 162 }, L2(22), 1270000, 993 },
-	{ 1, { 3148800, HFPLL, 1, 164 }, L2(22), 1310000, 1009},
+	{ 1, { 3072000, HFPLL, 1, 160 }, L2(22), 1245000, 977 },/* with active or TEC cooling */
+	{ 1, { 3110400, HFPLL, 1, 162 }, L2(22), 1280000, 993 },
+	{ 1, { 3148800, HFPLL, 1, 164 }, L2(22), 1320000, 1009},
 	{ 0, { 0 } }
 };
 
