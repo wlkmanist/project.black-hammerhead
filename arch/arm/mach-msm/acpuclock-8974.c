@@ -902,10 +902,10 @@ static struct acpu_level acpu_freq_tbl_2p3g_pvs3[] __initdata = {
 	{ 1, { 2918400, HFPLL, 1, 152 }, L2(22), 1160000, 891 },
 	{ 1, { 2956800, HFPLL, 1, 154 }, L2(22), 1175000, 907 },/*    this clock and below    */
 	{ 1, { 2995200, HFPLL, 1, 156 }, L2(22), 1190000, 923 },/* with dangerous overloltage */
-	{ 1, { 3033600, HFPLL, 1, 158 }, L2(22), 1225000, 961 },/* used for extreme oc tests  */
-	{ 1, { 3072000, HFPLL, 1, 160 }, L2(22), 1260000, 977 },/*   for PVS BIN 3 Nexus 5    */
-	{ 1, { 3110400, HFPLL, 1, 162 }, L2(22), 1310000, 993 },/*     with TEC cooling       */
-	{ 1, { 3148800, HFPLL, 1, 164 }, L2(22), 1340000, 1009},
+	{ 1, { 3033600, HFPLL, 1, 158 }, L2(22), 1210000, 961 },/* used for extreme oc tests  */
+	{ 1, { 3072000, HFPLL, 1, 160 }, L2(22), 1235000, 977 },/* with active or TEC cooling */
+	{ 1, { 3110400, HFPLL, 1, 162 }, L2(22), 1270000, 993 },
+	{ 1, { 3148800, HFPLL, 1, 164 }, L2(22), 1310000, 1009},
 	{ 0, { 0 } }
 };
 
