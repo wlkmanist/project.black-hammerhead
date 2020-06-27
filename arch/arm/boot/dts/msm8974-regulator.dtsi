@@ -309,8 +309,8 @@
 		pm8941_l12_ao: regulator-l12-ao {		/* kraitX and l2 hfpll-supply */
 			regulator-name = "8941_l12_ao";
 			qcom,set = <1>;
-			regulator-min-microvolt = <1820000>;	/* 1.8v stock */
-			regulator-max-microvolt = <1820000>;
+			regulator-min-microvolt = <1825000>;	/* 1.8v stock */
+			regulator-max-microvolt = <1825000>;
 			status = "okay";
 			compatible = "qcom,rpm-regulator-smd";
 		};
