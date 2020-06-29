@@ -63,8 +63,8 @@ struct thermal_levels
 	{ 1497600, 4 },
 	{ 1267200, 5 },
 	{ 1036800, 6 },
-	{ 729600,  7 },
-	{ 422400,  8 }
+	{ 729600,  8 },
+	{ 422400, 10 }
 };
 
 static struct msm_thermal_data msm_thermal_info;
