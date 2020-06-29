@@ -109,7 +109,7 @@ static void limit_cpu_freqs(uint32_t max_freq)
 	for_each_online_cpu(cpu)
 	{
 		cpufreq_update_policy(cpu);
-		pr_info("%s: Setting cpu%d max frequency to %d\n",
+		pr_info("%s: Setting cpu%d max freq to %d\n",
 				KBUILD_MODNAME, cpu, info.limited_max_freq);
 	}
 	put_online_cpus();
