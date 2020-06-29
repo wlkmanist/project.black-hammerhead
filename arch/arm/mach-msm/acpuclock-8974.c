@@ -29,6 +29,7 @@
 #define LVL_HIGH	RPM_REGULATOR_CORNER_SUPER_TURBO
 
 static int opt_bin = 0;
+static int hfpll_lvl = 0;
 
 static struct hfpll_data hfpll_data __initdata = {
 	.mode_offset = 0x00,
@@ -53,6 +54,51 @@ static struct hfpll_data hfpll_data __initdata = {
 };
 
 static struct scalable scalable[] __initdata = {
+	[CPU0] = {
+		.hfpll_phys_base = 0xF908A000,
+		.l2cpmr_iaddr = 0x4501,
+		.sec_clk_sel = 2,
+		.vreg[VREG_CORE] = { "krait0",     1350000 },
+		.vreg[VREG_MEM]  = { "krait0_mem", 1050000 },
+		.vreg[VREG_DIG]  = { "krait0_dig", LVL_HIGH },
+		.vreg[VREG_HFPLL_A] = { "krait0_hfpll", 1800000 },
+	},
+	[CPU1] = {
+		.hfpll_phys_base = 0xF909A000,
+		.l2cpmr_iaddr = 0x5501,
+		.sec_clk_sel = 2,
+		.vreg[VREG_CORE] = { "krait1",     1350000 },
+		.vreg[VREG_MEM]  = { "krait1_mem", 1050000 },
+		.vreg[VREG_DIG]  = { "krait1_dig", LVL_HIGH },
+		.vreg[VREG_HFPLL_A] = { "krait1_hfpll", 1800000 },
+	},
+	[CPU2] = {
+		.hfpll_phys_base = 0xF90AA000,
+		.l2cpmr_iaddr = 0x6501,
+		.sec_clk_sel = 2,
+		.vreg[VREG_CORE] = { "krait2",     1350000 },
+		.vreg[VREG_MEM]  = { "krait2_mem", 1050000 },
+		.vreg[VREG_DIG]  = { "krait2_dig", LVL_HIGH },
+		.vreg[VREG_HFPLL_A] = { "krait2_hfpll", 1800000 },
+	},
+	[CPU3] = {
+		.hfpll_phys_base = 0xF90BA000,
+		.l2cpmr_iaddr = 0x7501,
+		.sec_clk_sel = 2,
+		.vreg[VREG_CORE] = { "krait3",     1350000 },
+		.vreg[VREG_MEM]  = { "krait3_mem", 1050000 },
+		.vreg[VREG_DIG]  = { "krait3_dig", LVL_HIGH },
+		.vreg[VREG_HFPLL_A] = { "krait3_hfpll", 1800000 },
+	},
+	[L2] = {
+		.hfpll_phys_base = 0xF9016000,
+		.l2cpmr_iaddr = 0x0500,
+		.sec_clk_sel = 2,
+		.vreg[VREG_HFPLL_A] = { "l2_hfpll", 1800000 },
+	},
+};
+
+static struct scalable scalable_hfpll1820[] __initdata = {
 	[CPU0] = {
 		.hfpll_phys_base = 0xF908A000,
 		.l2cpmr_iaddr = 0x4501,
@@ -94,6 +140,96 @@ static struct scalable scalable[] __initdata = {
 		.l2cpmr_iaddr = 0x0500,
 		.sec_clk_sel = 2,
 		.vreg[VREG_HFPLL_A] = { "l2_hfpll", 1820000 },
+	},
+};
+
+static struct scalable scalable_hfpll1840[] __initdata = {
+	[CPU0] = {
+		.hfpll_phys_base = 0xF908A000,
+		.l2cpmr_iaddr = 0x4501,
+		.sec_clk_sel = 2,
+		.vreg[VREG_CORE] = { "krait0",     1350000 },
+		.vreg[VREG_MEM]  = { "krait0_mem", 1050000 },
+		.vreg[VREG_DIG]  = { "krait0_dig", LVL_HIGH },
+		.vreg[VREG_HFPLL_A] = { "krait0_hfpll", 1840000 },
+	},
+	[CPU1] = {
+		.hfpll_phys_base = 0xF909A000,
+		.l2cpmr_iaddr = 0x5501,
+		.sec_clk_sel = 2,
+		.vreg[VREG_CORE] = { "krait1",     1350000 },
+		.vreg[VREG_MEM]  = { "krait1_mem", 1050000 },
+		.vreg[VREG_DIG]  = { "krait1_dig", LVL_HIGH },
+		.vreg[VREG_HFPLL_A] = { "krait1_hfpll", 1840000 },
+	},
+	[CPU2] = {
+		.hfpll_phys_base = 0xF90AA000,
+		.l2cpmr_iaddr = 0x6501,
+		.sec_clk_sel = 2,
+		.vreg[VREG_CORE] = { "krait2",     1350000 },
+		.vreg[VREG_MEM]  = { "krait2_mem", 1050000 },
+		.vreg[VREG_DIG]  = { "krait2_dig", LVL_HIGH },
+		.vreg[VREG_HFPLL_A] = { "krait2_hfpll", 1840000 },
+	},
+	[CPU3] = {
+		.hfpll_phys_base = 0xF90BA000,
+		.l2cpmr_iaddr = 0x7501,
+		.sec_clk_sel = 2,
+		.vreg[VREG_CORE] = { "krait3",     1350000 },
+		.vreg[VREG_MEM]  = { "krait3_mem", 1050000 },
+		.vreg[VREG_DIG]  = { "krait3_dig", LVL_HIGH },
+		.vreg[VREG_HFPLL_A] = { "krait3_hfpll", 1840000 },
+	},
+	[L2] = {
+		.hfpll_phys_base = 0xF9016000,
+		.l2cpmr_iaddr = 0x0500,
+		.sec_clk_sel = 2,
+		.vreg[VREG_HFPLL_A] = { "l2_hfpll", 1840000 },
+	},
+};
+
+static struct scalable scalable_hfpll1860[] __initdata = {
+	[CPU0] = {
+		.hfpll_phys_base = 0xF908A000,
+		.l2cpmr_iaddr = 0x4501,
+		.sec_clk_sel = 2,
+		.vreg[VREG_CORE] = { "krait0",     1350000 },
+		.vreg[VREG_MEM]  = { "krait0_mem", 1050000 },
+		.vreg[VREG_DIG]  = { "krait0_dig", LVL_HIGH },
+		.vreg[VREG_HFPLL_A] = { "krait0_hfpll", 1860000 },
+	},
+	[CPU1] = {
+		.hfpll_phys_base = 0xF909A000,
+		.l2cpmr_iaddr = 0x5501,
+		.sec_clk_sel = 2,
+		.vreg[VREG_CORE] = { "krait1",     1350000 },
+		.vreg[VREG_MEM]  = { "krait1_mem", 1050000 },
+		.vreg[VREG_DIG]  = { "krait1_dig", LVL_HIGH },
+		.vreg[VREG_HFPLL_A] = { "krait1_hfpll", 1860000 },
+	},
+	[CPU2] = {
+		.hfpll_phys_base = 0xF90AA000,
+		.l2cpmr_iaddr = 0x6501,
+		.sec_clk_sel = 2,
+		.vreg[VREG_CORE] = { "krait2",     1350000 },
+		.vreg[VREG_MEM]  = { "krait2_mem", 1050000 },
+		.vreg[VREG_DIG]  = { "krait2_dig", LVL_HIGH },
+		.vreg[VREG_HFPLL_A] = { "krait2_hfpll", 1860000 },
+	},
+	[CPU3] = {
+		.hfpll_phys_base = 0xF90BA000,
+		.l2cpmr_iaddr = 0x7501,
+		.sec_clk_sel = 2,
+		.vreg[VREG_CORE] = { "krait3",     1350000 },
+		.vreg[VREG_MEM]  = { "krait3_mem", 1050000 },
+		.vreg[VREG_DIG]  = { "krait3_dig", LVL_HIGH },
+		.vreg[VREG_HFPLL_A] = { "krait3_hfpll", 1860000 },
+	},
+	[L2] = {
+		.hfpll_phys_base = 0xF9016000,
+		.l2cpmr_iaddr = 0x0500,
+		.sec_clk_sel = 2,
+		.vreg[VREG_HFPLL_A] = { "l2_hfpll", 1860000 },
 	},
 };
 
@@ -1099,7 +1235,25 @@ static int __init get_opt_level(char *l2_opt)
 	return 0;
 }
 
-__setup("l2_opt=", get_opt_level); 
+__setup("l2_opt=", get_opt_level);
+
+static int __init get_hfpll_level(char *hfpll_bin)
+{
+	if (strcmp(hfpll_bin, "0") == 0) {
+		hfpll_lvl = 0;
+	} else if (strcmp(hfpll_bin, "1") == 0) {
+		hfpll_lvl = 1;
+	} else if (strcmp(hfpll_bin, "2") == 0) {
+		hfpll_lvl = 2;
+	} else if (strcmp(hfpll_bin, "3") == 0) {
+		hfpll_lvl = 3;
+	} else {
+		hfpll_lvl = 0;
+	}
+	return 0;
+}
+
+__setup("hfpll_lvl=", get_hfpll_level); 
 
 static void __init apply_v1_l2_workaround(void)
 {
@@ -1151,6 +1305,19 @@ static int __init acpuclk_8974_probe(struct platform_device *pdev)
 	if (opt_bin == 3) {
 		acpuclk_8974_params.l2_freq_tbl = l2_freq_tbl_v2_ultra;
 		acpuclk_8974_params.l2_freq_tbl_size = sizeof(l2_freq_tbl_v2_ultra);
+	}
+
+	if (hfpll_lvl == 1) {
+		acpuclk_8974_params.scalable = scalable_hfpll1820;
+		acpuclk_8974_params.scalable_size = sizeof(scalable_hfpll1820);
+	}
+	if (hfpll_lvl == 2) {
+		acpuclk_8974_params.scalable = scalable_hfpll1840;
+		acpuclk_8974_params.scalable_size = sizeof(scalable_hfpll1840);
+	}
+	if (hfpll_lvl == 3) {
+		acpuclk_8974_params.scalable = scalable_hfpll1860;
+		acpuclk_8974_params.scalable_size = sizeof(scalable_hfpll1860);
 	}
 
 	return acpuclk_krait_init(&pdev->dev, &acpuclk_8974_params);
