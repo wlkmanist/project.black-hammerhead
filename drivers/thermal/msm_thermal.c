@@ -31,7 +31,6 @@
 #define MSM_THERMAL_TEMP_THRESHOLD_CRIT 115
 #define THERMAL_SAFE_DIFF 5
 
-int enabled = 1;
 int temp_threshold = 70;
 module_param(temp_threshold, int, 0644);
 
@@ -136,7 +135,8 @@ static void check_temp(struct work_struct *work)
 		kernel_power_off();
 	}
 
-	if (!enabled) 
+	if (temp_threshold >= 100)
+	/* let's say module disabled at temp threshold >= 100 value (max value at Kernel adiutor) */
 	{
 		/* if module disabled we need reshedule to check at least once per second 
 		 * MSM_THERMAL_TEMP_THRESHOLD_CRIT to avoid permanent hardware damage
@@ -181,33 +181,6 @@ reschedule:
 	else
 		schedule_delayed_work_on(0, &check_temp_work, msecs_to_jiffies(250));
 }
-
-int __ref set_enabled(const char *val, const struct kernel_param *kp)
-{
-	if (*val == '0' || *val == 'n' || *val == 'N')
-	{
-		enabled = 0; /* disable */
-		limit_cpu_freqs(info.cpuinfo_max_freq);
-	}
-	else
-	{
-		if (!enabled)
-		{
-			enabled = 1; /* reschedule */
-		} 
-	}
-
-	return 0;
-}
-
-struct kernel_param_ops module_ops = {
-	.set = set_enabled,
-	.get = param_get_bool,
-};
-
-module_param_cb(enabled, &module_ops, &enabled, 0644);
-MODULE_PARM_DESC(enabled, "enforce thermal limit on cpu");
-
 
 static int __devinit msm_thermal_dev_probe(struct platform_device *pdev)
 {
