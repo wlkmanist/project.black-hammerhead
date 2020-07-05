@@ -2906,6 +2906,14 @@ config MSM_DCVS
 	  algorithm and the algorithm returns a frequency for the core which is
 	  passed to the frequency change driver.
 
+config BRICKED_HOTPLUG
+	bool "Enable kernel based mpdecision"
+	depends on MSM_RUN_QUEUE_STATS
+	default n
+	help
+		This enables kernel based multi core control.
+		(up/down hotplug based on load)
+
 config MSM_CPR
 	tristate "Use MSM CPR in S/W mode"
 	help
