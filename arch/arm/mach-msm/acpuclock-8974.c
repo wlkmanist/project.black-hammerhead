@@ -419,9 +419,9 @@ static struct l2_level l2_freq_tbl_v2[] __initdata = {
 	[17] = { { 1574400, HFPLL, 1,  82 }, LVL_HIGH, 1050000, 7 },
 	[18] = { { 1651200, HFPLL, 1,  86 }, LVL_HIGH, 1050000, 7 },
 	[19] = { { 1728000, HFPLL, 1,  90 }, LVL_HIGH, 1050000, 8 },
-        [20] = { { 1728000, HFPLL, 1,  90 }, LVL_HIGH, 1050000, 8 },
-        [21] = { { 1728000, HFPLL, 1,  90 }, LVL_HIGH, 1050000, 8 },
-        [22] = { { 1728000, HFPLL, 1,  90 }, LVL_HIGH, 1050000, 8 },
+    [20] = { { 1728000, HFPLL, 1,  90 }, LVL_HIGH, 1050000, 8 },
+    [21] = { { 1728000, HFPLL, 1,  90 }, LVL_HIGH, 1050000, 8 },
+    [22] = { { 1728000, HFPLL, 1,  90 }, LVL_HIGH, 1050000, 8 },
 	{ }
 };
 
@@ -473,9 +473,9 @@ static struct l2_level l2_freq_tbl_v2_fast[] __initdata = {
 	[17] = { { 1574400, HFPLL, 1,  82 }, LVL_HIGH, 1050000, 7 },
 	[18] = { { 1651200, HFPLL, 1,  86 }, LVL_HIGH, 1050000, 7 },
 	[19] = { { 1728000, HFPLL, 1,  90 }, LVL_HIGH, 1050000, 8 },
-        [20] = { { 1804800, HFPLL, 1,  94 }, LVL_HIGH, 1050000, 9 },
-        [21] = { { 1881600, HFPLL, 1,  98 }, LVL_HIGH, 1050000, 9 },
-        [22] = { { 1881600, HFPLL, 1,  98 }, LVL_HIGH, 1050000, 9 },
+    [20] = { { 1804800, HFPLL, 1,  94 }, LVL_HIGH, 1050000, 9 },
+    [21] = { { 1881600, HFPLL, 1,  98 }, LVL_HIGH, 1050000, 9 },
+    [22] = { { 1881600, HFPLL, 1,  98 }, LVL_HIGH, 1050000, 9 },
 	{ }
 };
 
@@ -500,9 +500,9 @@ static struct l2_level l2_freq_tbl_v2_ultra[] __initdata = {
 	[17] = { { 1574400, HFPLL, 1,  82 }, LVL_HIGH, 1050000, 7 },
 	[18] = { { 1651200, HFPLL, 1,  86 }, LVL_HIGH, 1050000, 7 },
 	[19] = { { 1728000, HFPLL, 1,  90 }, LVL_HIGH, 1050000, 8 },
-        [20] = { { 1804800, HFPLL, 1,  94 }, LVL_HIGH, 1050000, 9 },
-        [21] = { { 1881600, HFPLL, 1,  98 }, LVL_HIGH, 1050000, 9 },
-        [22] = { { 1958400, HFPLL, 1, 102 }, LVL_HIGH, 1050000, 9 },
+    [20] = { { 1804800, HFPLL, 1,  94 }, LVL_HIGH, 1050000, 9 },
+    [21] = { { 1881600, HFPLL, 1,  98 }, LVL_HIGH, 1050000, 9 },
+    [22] = { { 1958400, HFPLL, 1, 102 }, LVL_HIGH, 1050000, 9 },
 	{ }
 };
 static struct acpu_level acpu_freq_tbl_2g_pvs0[] __initdata = {
@@ -1297,11 +1297,11 @@ static int __init acpuclk_8974_probe(struct platform_device *pdev)
 		acpuclk_8974_params.l2_freq_tbl = l2_freq_tbl_v2_elementalx;
 		acpuclk_8974_params.l2_freq_tbl_size = sizeof(l2_freq_tbl_v2_elementalx);
 	}
-	if (opt_bin == 2) {
+	else if (opt_bin == 2) {
 		acpuclk_8974_params.l2_freq_tbl = l2_freq_tbl_v2_fast;
 		acpuclk_8974_params.l2_freq_tbl_size = sizeof(l2_freq_tbl_v2_fast);
 	}
-	if (opt_bin == 3) {
+	else if (opt_bin == 3) {
 		acpuclk_8974_params.l2_freq_tbl = l2_freq_tbl_v2_ultra;
 		acpuclk_8974_params.l2_freq_tbl_size = sizeof(l2_freq_tbl_v2_ultra);
 	}
@@ -1310,13 +1310,22 @@ static int __init acpuclk_8974_probe(struct platform_device *pdev)
 		acpuclk_8974_params.scalable = scalable_hfpll1820;
 		acpuclk_8974_params.scalable_size = sizeof(scalable_hfpll1820);
 	}
-	if (hfpll_lvl == 2) {
+	else if (hfpll_lvl == 2) {
 		acpuclk_8974_params.scalable = scalable_hfpll1840;
 		acpuclk_8974_params.scalable_size = sizeof(scalable_hfpll1840);
 	}
-	if (hfpll_lvl == 3) {
+	else if (hfpll_lvl == 3) {
 		acpuclk_8974_params.scalable = scalable_hfpll1860;
 		acpuclk_8974_params.scalable_size = sizeof(scalable_hfpll1860);
+	}
+
+	if (hfpll_lvl)
+	{
+		const int vhfpll = hfpll_lvl * 20000 + 1800000;	// 1.8v stock. Increase 20mv each step
+		int l;
+
+		for (l = CPU0; l <= L2; l++)
+			acpuclk_8974_params.scalable[l].vreg[VREG_HFPLL_A].cur_vdd = vhfpll;
 	}
 
 	return acpuclk_krait_init(&pdev->dev, &acpuclk_8974_params);
