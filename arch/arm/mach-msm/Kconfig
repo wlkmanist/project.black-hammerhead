@@ -2915,10 +2915,18 @@ config BLU_PLUG
 	  The Dynamic hotplug driver automatically online/offline CPUs proportional to system load.
 
 config INTELLI_PLUG
-        bool "Enable intelli-plug cpu hotplug driver"
-        default n
-        help
-          Generic Intelli-plug cpu hotplug driver for ARM SOCs
+	bool "Enable intelli-plug cpu hotplug driver"
+	default n
+	help
+	  Generic Intelli-plug cpu hotplug driver for ARM SOCs
+
+config BRICKED_HOTPLUG
+	bool "Enable kernel based mpdecision"
+	depends on MSM_RUN_QUEUE_STATS
+	default n
+	help
+		This enables kernel based multi core control.
+		(up/down hotplug based on load)
 
 config MSM_CPR
 	tristate "Use MSM CPR in S/W mode"
