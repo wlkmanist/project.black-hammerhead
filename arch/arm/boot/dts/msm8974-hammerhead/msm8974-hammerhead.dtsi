@@ -137,7 +137,7 @@
 	};
 
 	qcom,msm-thermal {
-		qcom,limit-temp = <90>;
+		qcom,limit-temp = <125>;
 	};
 
 	bluesleep {
