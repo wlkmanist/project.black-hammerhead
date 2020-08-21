@@ -23,6 +23,7 @@
 #include <linux/mutex.h>
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
+#include <linux/pm_wakeirq.h>
 #include <linux/resume-trace.h>
 #include <linux/interrupt.h>
 #include <linux/sched.h>
@@ -475,6 +476,7 @@ static void dpm_resume_noirq(pm_message_t state)
 	mutex_unlock(&dpm_list_mtx);
 	dpm_show_time(starttime, state, "noirq");
 	resume_device_irqs();
+	device_wakeup_disarm_wake_irqs();
 }
 
 /**
@@ -897,6 +899,7 @@ static int dpm_suspend_noirq(pm_message_t state)
 	char suspend_abort[MAX_SUSPEND_ABORT_LEN];
 	int error = 0;
 
+	device_wakeup_arm_wake_irqs();
 	suspend_device_irqs();
 	mutex_lock(&dpm_list_mtx);
 	while (!list_empty(&dpm_late_early_list)) {
