@@ -1068,12 +1068,17 @@ static void __init bus_init(const struct l2_level *l2_level)
 ssize_t acpuclk_get_vdd_levels_str(char *buf) {
 
 	int i, len = 0;
+	uint32_t arg_max_oc_max = arg_max_oc0;
 
 	if (buf) {
 		mutex_lock(&driver_lock);
 
+		if (arg_max_oc1 > arg_max_oc_max) arg_max_oc_max = arg_max_oc1;
+		if (arg_max_oc2 > arg_max_oc_max) arg_max_oc_max = arg_max_oc2;
+		if (arg_max_oc3 > arg_max_oc_max) arg_max_oc_max = arg_max_oc3;
+
 		for (i = 0; drv.acpu_freq_tbl[i].speed.khz; i++) {
-			if (drv.acpu_freq_tbl[i].speed.khz <= arg_max_oc0) {
+			if (drv.acpu_freq_tbl[i].speed.khz <= arg_max_oc_max) {
 				len += sprintf(buf + len, "%8lu: %8d\n", drv.acpu_freq_tbl[i].speed.khz,
 					drv.acpu_freq_tbl[i].vdd_core );
 			}
