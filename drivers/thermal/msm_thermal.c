@@ -105,13 +105,13 @@ static void limit_cpu_freqs(uint32_t max_freq)
 
 	info.pending_change = true;
 
+	if (info.limited_max_freq != info.cpuinfo_max_freq)
+		pr_info("%s: CPU freq limit (%d)\n",
+					KBUILD_MODNAME, info.limited_max_freq);
+	else pr_info("%s: Restore CPU freq", KBUILD_MODNAME);
+
 	get_online_cpus();
-	for_each_online_cpu(cpu)
-	{
-		cpufreq_update_policy(cpu);
-		pr_info("%s: Setting cpu%d max freq to %d\n",
-				KBUILD_MODNAME, cpu, info.limited_max_freq);
-	}
+	for_each_online_cpu(cpu) cpufreq_update_policy(cpu);
 	put_online_cpus();
 
 	info.pending_change = false;
@@ -129,8 +129,8 @@ static void check_temp(struct work_struct *work)
 
 	if (temp >= MSM_THERMAL_TEMP_THRESHOLD_CRIT)
 	{
-		pr_info("%s: power down by soc temp limit theshold (%d)\n",
-			__func__, MSM_THERMAL_TEMP_THRESHOLD_CRIT);
+		pr_info("%s: Power down by soc temp limit theshold (%d)\n",
+			KBUILD_MODNAME, MSM_THERMAL_TEMP_THRESHOLD_CRIT);
 		sys_sync();
 		kernel_power_off();
 	}
