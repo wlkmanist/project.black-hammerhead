@@ -17,6 +17,7 @@
 #include <linux/node.h>
 #include <linux/compiler.h>
 #include <linux/cpumask.h>
+#include <linux/cpu-boost.h>
 
 struct device;
 

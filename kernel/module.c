@@ -1200,7 +1200,7 @@ static const struct kernel_symbol *resolve_symbol(struct module *mod,
 						  const char *name,
 						  char ownername[])
 {
-	struct module *owner;
+	struct module *owner = NULL;
 	const struct kernel_symbol *sym;
 	const unsigned long *crc;
 	int err;
@@ -1860,7 +1860,7 @@ EXPORT_SYMBOL_GPL(__symbol_get);
 static int verify_export_symbols(struct module *mod)
 {
 	unsigned int i;
-	struct module *owner;
+	struct module *owner = NULL;
 	const struct kernel_symbol *s;
 	struct {
 		const struct kernel_symbol *sym;

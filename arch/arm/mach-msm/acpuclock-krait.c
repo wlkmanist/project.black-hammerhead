@@ -173,7 +173,11 @@ static void __set_pri_clk_src(struct scalable *sc, u32 pri_src_sel)
 
 	regval = get_l2_indirect_reg(sc->l2cpmr_iaddr);
 	regval &= ~0x3;
-	regval |= (pri_src_sel & 0x3);
+	regval |= pri_src_sel;
+	if (sc != &drv.scalable[L2]) {
+		regval &= ~(0x3 << 8);
+		regval |= pri_src_sel << 8;
+	}
 	set_l2_indirect_reg(sc->l2cpmr_iaddr, regval);
 	/* Wait for switch to complete. */
 	mb();
@@ -208,7 +212,11 @@ static void __cpuinit set_sec_clk_src(struct scalable *sc, u32 sec_src_sel)
 
 	regval = get_l2_indirect_reg(sc->l2cpmr_iaddr);
 	regval &= ~(0x3 << 2);
-	regval |= ((sec_src_sel & 0x3) << 2);
+	regval |= sec_src_sel << 2;
+	if (sc != &drv.scalable[L2]) {
+		regval &= ~(0x3 << 10);
+		regval |= sec_src_sel << 10;
+	}
 	set_l2_indirect_reg(sc->l2cpmr_iaddr, regval);
 	/* Wait for switch to complete. */
 	mb();
@@ -860,15 +868,21 @@ static int __cpuinit regulator_init(struct scalable *sc,
 	}
 
 	/*
-	 * Increment the L2 HFPLL regulator refcount if _this_ CPU's frequency
-	 * requires a corresponding target L2 frequency that needs the L2 to
-	 * run off of an HFPLL.
+	 * Vote for the L2 HFPLL regulators if _this_ CPU's frequency requires
+	 * a corresponding target L2 frequency that needs the L2 an HFPLL.
 	 */
-	if (drv.l2_freq_tbl[acpu_level->l2_level].speed.src == HFPLL)
-		l2_vreg_count++;
+	if (drv.l2_freq_tbl[acpu_level->l2_level].speed.src == HFPLL) {
+		ret = enable_l2_regulators();
+		if (IS_ERR_VALUE(ret)) {
+			dev_err(drv.dev, "Failed to enable L2 regulators\n");
+			goto err_l2_regs;
+		}
+	}
 
 	return 0;
 
+err_l2_regs:
+	regulator_disable(sc->vreg[VREG_CORE].reg);
 err_core_conf:
 	regulator_put(sc->vreg[VREG_CORE].reg);
 err_core_get:
@@ -917,6 +931,8 @@ static int __cpuinit init_clock_sources(struct scalable *sc,
 	/* Set PRI_SRC_SEL_HFPLL_DIV2 divider to div-2. */
 	regval = get_l2_indirect_reg(sc->l2cpmr_iaddr);
 	regval &= ~(0x3 << 6);
+	if (sc != &drv.scalable[L2])
+		regval &= ~(0x3 << 14);
 	set_l2_indirect_reg(sc->l2cpmr_iaddr, regval);
 
 	/* Enable and switch to the target clock source. */
@@ -1047,7 +1063,7 @@ static void __init bus_init(const struct l2_level *l2_level)
 #ifdef CONFIG_CPU_VOLTAGE_TABLE
 
 #define HFPLL_MIN_VDD		 500000
-#define HFPLL_MAX_VDD		1200000
+#define HFPLL_MAX_VDD		1350000
 
 ssize_t acpuclk_get_vdd_levels_str(char *buf) {
 

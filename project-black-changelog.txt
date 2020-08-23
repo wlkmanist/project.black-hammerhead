@@ -1,0 +1,291 @@
+project.black kernel changelog
+ElementalX 1.10 (1.13) based
+by wlkmanist
+
+:: TODO ::
+- glados sgn kernel bus clock control
+- https://github.com/franciscofranco/hammerhead/commit/f1ba0c78cb9a6863a09e0a8a6cd80bbfa29d10fe
+- linux version
+- turbo boost cpu governor
+- CONFIG_PARTIALRESUME
+- wakeup_reason
+- compare drivers/ r8d vs r9d #51
+- check reboot.h
+- boeffla True dynamic FSync
+- boeffla Kernel initialisation log file (with history of 3 log files)
+- msm: thermal: https://github.com/Cl3Kener/UBER-L/commit/96394eb1f522c174f85666166d984f68cc9cb17c
+- bricked hotplug
+- custom fast charge
+- quick charge
+- git
+
+============================================================
+
+:: Dev alias ::
+defconfig :: arch/arm/configs/black_wlk_defconfig
+
+============================================================
+
+:: Legend ::
+"-" - change
+"x" - not added. maybe next time.
+"+" - testing at issues list
+"z" - not actual problem with current config
+"v" - issue fixed
+
+============================================================
+
+Last stable - r17e
+
+:: Issues ::
++ r18*+:: watchdog timer while screen off (rarely)
+z BLX working only visuals
+
+============================================================
+
+:: r19j :: RC
+- set krait retention-voltage to 625mv, min pm8941_l22 to 2.25v	@ arch/arm/boot/dts/msm8974-regulator.dtsi
+- msm_thermal: sync before thermal threshold shutdown		@ drivers/thermal/msm_thermal.c
+- Disabled BLX							@ defconfig
+- Enabled blu_plug hotplug driver				@ defconfig
+- fixed rare reboots by watchdog timer while screen off		@ Makefile ++
+
+:: r19b ::
+- set pm8941_l22 voltage to stock				@ arch/arm/boot/dts/msm8974-regulator.dtsi
+- sync fix							@ fs/sync.c
+
+:: r19a ::
+- mm: Add extra free kbytes tunable 				@ Documentation/sysctl/vm.txt
+								& kernel/sysctl.c
+								& mm/page_alloc.c
+- mm: mmap: Add new /proc tunable for mmap_base ASLR		@ Documentation/sysctl/vm.txt
+								& arch/Kconfig
+								& include/linux/mm.h
+								& kernel/sysctl.c
+								& mm/mmap.c
+- enable SECURITY_PERF_EVENTS_RESTRICT				@ defconfig
+- remove SysV IPC (global kernel resource leakage fix)		@ defconfig
+
+:: r18g ::
+- added 1881MHz L2 oc level step at installer			@ arch/arm/mach-msm/acpuclock-8974.c
+- lib: int_sqrt: Optimize square root algorithm 		@ lib/int_sqrt.c
+- acpuclock-krait: Program both high-/low-performance sources	@ arch/arm/mach-msm/acpuclock-krait.c
+- acpuclock-krait: Fix HFPLL regulator voting in regulator_init	@ arch/arm/mach-msm/acpuclock-krait.c
+- arm/dt: Increase OCMEM BW request to enhance performance	@ arch/arm/boot/dts/msm8974-v2.dtsi
+- arm/dt: Increase "ib" values for VIDC DDR bandwidth request	@ arch/arm/boot/dts/msm8974-v2.dtsi
+- arm/dt: Modify bus vector for RNG client			@ arch/arm/boot/dts/msm8974.dtsi
+- arm/dt: Increase ADSP heap size (For hevc hybrid codec 1080p)	@ arch/arm/boot/dts/msm8974.dtsi
+- mmc: core: Enable async suspend				@ drivers/mmc/core/bus.c
+								& drivers/mmc/core/host.c
+								& drivers/mmc/host/sdhci-msm.c
+- Set timer interrupt freq to 100hz				@ defconfig
+- set krait retention-voltage to stock 675mv from 600mv		@ arch/arm/boot/dts/msm8974-regulator.dtsi
+- disabled hotplug						@ defconfig
+- installer tweaks
+
+:: r18d ::
+- fastchg: fast charge 2400 lvl not applyable fix		@ arch/arm/mach-msm/fastchg.c
+- fastchg: fixed permissions					@ arch/arm/mach-msm/fastchg.c
++ blu_plug: boot at 4 cores. set defaults to all cores online	@ arch/arm/mach-msm/blu_plug.c
+
+:: r18c ::
+- fs/sync: Make sync() satisfy many requests with one invocation@ fs/sync.c
+- fs/dyn_sync_cntrl: dynamic sync control			@ fs/Kconfig
+								& fs/Makefile
+								& fs/dyn_sync_cntrl.c
+								& fs/sync.c
+- Asynchronous Fsync: initial extraction of			@ drivers/mmc/core/mmc.c
+  Async Fsync from HTC						& fs/Kconfig
+								& fs/namespace.c
+								& fs/sync.c
+								& include/linux/fs.h
+
+:: r18b ::
+- changed force fast charge module				@ arch/arm/mach-msm/fastchg.c
+  ability to change currents to 500 900 1200 1500 1800 2000 2400& drivers/power/bq24192_charger.c
+  (echo 2 > /sys/kernel/fast_charge/force_fast_charge)		& drivers/usb/dwc3/dwc3_otg.c
+  (echo 1500 > /sys/kernel/fast_charge/fast_charge_level)	& include/linux/fastchg.h
+- sched: Add sysinterface for GENTLE_FAIR_SLEEPERS		@ kernel/ksysfs.c
+								& kernel/sched/fair.c
+- ksysfs: Disable Gentle Fair Sleepers				@ kernel/ksysfs.c
+- rcu: Add a module parameter to force use of expedited RCU	@ kernel/ksysfs.c
+  primitives							& kernel/rcu.h
+								& kernel/rcupdate.c
+								& kernel/rcutiny_plugin.h
+								& kernel/rcutree.c
+								& kernel/rcutree_plugin.h
+- Add Arch Power and Gentle Fair Sleepers Interface		@ kernel/ksysfs.c
+								& kernel/sched/fair.c
+- Add BLX driver						@ drivers/misc/Kconfig
+								& drivers/misc/Makefile
+								& drivers/misc/blx.c
+								& drivers/power/max17048_battery.c
+								& include/linux/blx.h
+
+:: r17g ::
+- compiled with cortex-a15 tune, -O3, -ffast-math and graphite	@ makefile
+
+:: r17e :: STABLE
+- enabled hotplug
+- added and enabled ksm
+- optimized L2 cache oc freq steps (added 1804, 1881, 1958MHz)	@ arch/arm/mach-msm/acpuclock-8974.c
+- added 3072MHz, 3110MHz, 3148MHz cpu freq steps		@ arch/arm/mach-msm/acpuclock-8974.c
+- msm_thermal: small improvements, def temp threshold is 70`C	@ drivers/thermal/msm_thermal.c
+- changed defconfig
+::Issues
+: Boot with 2 cores online
+
+:: r17b ::
+- temporary disabled blu_blug driver				@ defconfig
+- set krait retention-voltage to 600mv, min gpu volt to 600mv	@ arch/arm/boot/dts/msm8974-regulator.dtsi
+  min pm8941_l22 volt to 2.25v
+- deleted duplicated gpu freq steps, add gpu freqs up to 650MHz	@ arch/arm/boot/dts/msm8974-gpu.dtsi
+
+:: r16a ::
+- krait and L2 HFPLL-supply (pm8941_l12_ao) overvoltage to 1.82v@ arch/arm/boot/dts/msm8974-regulator.dtsi
+								& arch/arm/mach-msm/acpuclock-8974.c
+- added 96MHz, 172MHz, 2918MHz, 2995MHz, 3033MHz cpu freq steps	@ arch/arm/mach-msm/acpuclock-8974.c
+- set default cpu freq range to 300MHz to 2265MHz		@ arch/arm/mach-msm/cpufreq.c
+  (you can change limits manually from system)			& defconfig
+- disabled debug stuff						@ defconfig
+
+:: r15i ::
+- Modified throttling freq table. Max freq step 2496MHz while	@ drivers/thermal/msm_thermal.c
+  throttling. If throttling now, reshedule delay 50ms else 250ms
+  (much more stable temps and clocks while cpu throttling)
+- fix cpu freq stuck with hotplug and cpu-boost active		@ kernel/cpu.c
+  (notify governor when cpu down and force remove boost limits)	& include/linux/cpu.h
+								& include/linux/cpu-boost.h
+								& drivers/cpufreq/cpu-boost.c
+- enabled cpu-boost						@ defconfig
+
+:: r14a ::
+- arch/arm/mach-msm/mpm-of.c: gcc 4.9.x fix up
+- GCC 4.9.1: fix compile warnings
+- Fix gcc-4.9.0 miscompilation of load_balance() in scheduler	@ Makefile
+- kernel: add support for gcc 5.0				@ include/linux/compiler-gcc5.h
+- kernel: add support for gcc 6					@ include/linux/compiler-gcc6.h
+- kernel: add support for gcc 7					@ include/linux/compiler-gcc7.h
+- makefile: surpress some gcc 7 default warnings		@ Makefile
+- few other fixes...
+- Compiled with arm-cortex_a15-linux-gnueabihf-linaro_4.7.4-2014.04
+
+:: r13f #92 ::
+- Changed hotplug driver back to blu_plug 			@ defconfig
+- blu_plug: Set init delay back to 60s and def up timer to 0.5s	@ arch/arm/mach-msm/blu_plug.c
+
+:: r13d #87 ::
+- thermal: add franco simple thermal driver with wlkmanist mods	@ arch/arm/mach-msm/lge/board-8974-hammerhead.c
+  (you can set temp_threshold below zero and disable thermal	& drivers/thermal/msm_thermal-dev.c
+  throttling at all but at 115`C kernel will power off anyway)	& drivers/thermal/msm_thermal.c
+								& include/linux/msm_thermal.h
+
+:: r12 ::
+- changed defconfig
+- cpufreq: temporary removed cpu-boost driver 			@ drivers/cpufreq/cpu-boost.c
+- Changed hotplug driver to intelli_plug by faux123 		@ arch/arm/mach-msm/intelli_plug.c
+								& kernel/sched/sched.h
+								& kernel/sched/core.c
+- intelli_plug: set default screenoff max cores to 2		@ arch/arm/mach-msm/intelli_plug.c
+- power_suspend - A replacement kernel PM driver for Android's
+	deprecated early_suspend/late_resume PM driver
+x Many fixes from ElementaryX-8.xx
+x Make memory operations safe
+
+:: r11 ::
+- Modified interactive governor for proper work with hotplug	@ drivers/cpufreq/cpufreq_interactive.o
+
+:: r11b #61 ::
+- blu_plug: Changed init delay to 90 sec			@ arch/arm/mach-msm/blu_plug.c
+- cpufreq: Send an unchanged policy update to the source CPU	@ drivers/cpufreq/cpu-boost.c
+
+:: r10 ::
+- Set pm8941 init voltage to 3.05v
+- Changed defconfig
+- Set timer interrupt freq to from 100hz to 300hz		@ defconfig
+								& arch/arm/Kconfig
+- less logs
+- blu_plug: Dynamic hotplug driver for hammerhead by engstk	@ arch/arm/mach-msm/Kconfig
+								& arch/arm/mach-msm/Makefile
+								& arch/arm/mach-msm/blu_plug.c
+								& include/linux/cpufreq.h
+								& drivers/cpufreq/cpufreq.c
+- Modified performance and conservative governors for proper	@ drivers/cpufreq/cpufreq_performance.o
+				work with hotplug driver	& drivers/cpufreq/cpufreq_conservative.o
+
+:: r9d #51 ::
+- Fixed power off by kernel due ulow voltage @ drivers/power/max17048_battery.c
+- Updated ext4 fs @ fs/ext4/
+- Updated f2fs fs @ fs/f2fs/
+		  & include/linux/f2fs_fs.h
+		  & include/trace/events/f2fs.h
+		  & ++
+
+:: r8 ::
+- Camera voltage optimization @ arch/arm/boot/dts/msm8974-camera.dtsi
+- Changed gpu idle timeout (from 8ms to 40ms) @ arch/arm/boot/dts/msm8974-gpu.dtsi
+- arm/dt: hammerhead: set power down vbatt level to 3.0V @ arch/arm/boot/dts/msm8974-hammerhead/msm8974-hammerhead-pm.dtsi
+- Set maximum usb speed to "High" @ arch/arm/boot/dts/msm8974-hammerhead/msm8974-hammerhead-usb.dtsi
+- mutex.h from ElementalX-8.xx @ arch/arm/include/asm/mutex.h
+- MSM Audio ION module from ElementalX-8.xx @ arch/arm/mach-msm/qdsp5v2/msm_audio_ion.c
+- Synaptics touchscreen driver update	@ drivers/input/touchscreen/SynaImage_ds5.h
+					& drivers/input/touchscreen/synaptics_i2c_rmi4.c
+					& drivers/input/touchscreen/synaptics_rmi_dev.c
+- Synaptics touchscreen driver memory leak fix @ drivers/input/touchscreen/synaptics_i2c_rmi4.c
+- Camera driver update
+- fix	@ drivers/hid/usbhid/hiddev.c
+	& drivers/media/platform/msm/camera_v2/sensor/cci/msm_cci.c
+- memory leak fix @ drivers/media/platform/msm/camera_v2/sensor/actuator/msm_actuator.c
+- make memory operations safe	@ arch/arm/mach-msm/qdsp5/audio_aac_in.c
+				& arch/arm/mach-msm/qdsp5v2/audio_aac_in.c
+				& arch/arm/mach-msm/qdsp5v2/pcm_out.c
+				& drivers/media/platform/msm/camera_v2/pproc/cpp/msm_cpp.c
+- prevent leaking kernel address @ (50+ files...)
+- added mutex @ arch/arm/mach-msm/qdsp5v2/audio_utils_aio.c
+- downclocked L2 cache frequency step (from 1420MHz to 1267MHz) for cpu 1267MHz freq step @ arch/arm/mach-msm/acpuclock-8974.c
+- a lot of small fixes and improvements from ElementalX-8.xx
+
+:: r7 ::
+- ANDROID: keychord: Fix for a memory leak in keychord. @ drivers/input/misc/keychord.c
+- changed interactive, conservative, ondemand governors for similar by franciscofranco
+
+:: r6 ::
+- Cleaned up code
+- pids: make task_tgid_nr_ns() safe	@ include/linux/pid.h
+					& include/linux/sched.h
+					& kernel/pid.c
+- cpufreq: updated cpu-boost driver @ drivers/cpufreq/cpu-boost.c
+- msm: kgsl: don't waste CPU cycles on running the governor algorithm
+	if the GPU hasn't been busier than 1ms @ drivers/gpu/msm/kgsl_pwrscale_trustzone.c
+
+:: r5 ::
+- Modified installer
+- Added option for higher L2 cache overclocking (1920MHz) @ arch/arm/mach-msm/acpuclock-8974.c
+- power:qpnp-charger: extended charge time from 30s to 100s when battery status is near to full @ drivers/power/qpnp-charger.c
+- arm/dt: hammerhead: set power down vbatt level to 2.9V @ arch/arm/boot/dts/msm8974-hammerhead/msm8974-hammerhead-pm.dtsi
+- msm: kgsl: Use IDLE interrupt to switch to NAP state	@ drivers/gpu/msm/adreno_a3xx.c
+							& drivers/gpu/msm/adreno_ringbuffer.c
+							& drivers/gpu/msm/kgsl_pwrctrl.c
+							& drivers/gpu/msm/kgsl_pwrctrl.h
+- cpufreq: broken (temporary removed) @ drivers/cpufreq/cpu-boost.c
+
+:: r4 ::
+- Set max cpu core voltage to 1.35v 	@ arch/arm/boot/dts/msm8974-regulator.dtsi
+					& arch/arm/mach-msm/acpuclock-krait.c 
+					& arch/arm/mach-msm/acpuclock-8974.c
+- Adjusted default voltage for OC freq steps for PVS0 devices @ arch/arm/mach-msm/acpuclock-8974.c
+- cfg80211: Fix memory leak @ net/wireless/reg.c
+- cpufreq: Add cpu-boost driver @ drivers/cpufreq/cpu-boost.c
+
+:: r3 ::
+- changed fixed-point load-average counting -> (4*HZ+61) @ include/linux/sched.h
+- msm: kgsl: Fix Z180 memory leak @ drivers/gpu/msm/z180.c
+- msm: kgsl: Wake up GPU only for touch events @ drivers/gpu/msm/adreno.c
+- msm: kgsl: Schedule adreno_start in a high priority workqueue @ drivers/gpu/msm/adreno.c
+- Replace %p with %pK to prevent leaking kernel address @ net/netfilter/xt_qtaguid.c
+
+:: r2 ::
+- changed defconfig
+
+:: r1 ::
+- Initial release

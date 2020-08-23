@@ -476,6 +476,13 @@ static inline void __module_get(struct module *module)
 int ref_module(struct module *a, struct module *b);
 
 /* This is a #define so the string doesn't get put in every .o file */
+// fix by wlkmanist:
+/*
+#define module_name(mod)			\
+({						\
+	mod ? mod->name : "kernel";		\
+})
+*/
 #define module_name(mod)			\
 ({						\
 	struct module *__mod = (mod);		\

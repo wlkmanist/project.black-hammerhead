@@ -161,7 +161,7 @@ void __init msm8974_add_drivers(void)
 	krait_power_init();
 	msm_clock_init(&msm8974_clock_init_data);
 	tsens_tm_init_driver();
-	msm_thermal_device_init();
+	//msm_thermal_device_init();
 	lge_add_persistent_device();
 #if defined (CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE)
 	init_bcm_wifi();
@@ -248,7 +248,8 @@ static const char *msm8974_dt_match[] __initconst = {
 	NULL
 };
 
-DT_MACHINE_START(MSM8974_DT, "Qualcomm MSM 8974 HAMMERHEAD (Flattened Device Tree)")
+//DT_MACHINE_START(MSM8974_DT, "Qualcomm MSM 8974 HAMMERHEAD (Flattened Device Tree)")
+DT_MACHINE_START(MSM8974_DT, "wlkmanist's holy Nexus 5")
 	.map_io = msm8974_map_io,
 	.init_irq = msm_dt_init_irq,
 	.init_machine = msm8974_init,

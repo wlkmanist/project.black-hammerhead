@@ -141,6 +141,23 @@ static ssize_t fscaps_show(struct kobject *kobj,
 }
 KERNEL_ATTR_RO(fscaps);
 
+int rcu_expedited;
+static ssize_t rcu_expedited_show(struct kobject *kobj,
+				  struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", rcu_expedited);
+}
+static ssize_t rcu_expedited_store(struct kobject *kobj,
+				   struct kobj_attribute *attr,
+				   const char *buf, size_t count)
+{
+	if (kstrtoint(buf, 0, &rcu_expedited))
+		return -EINVAL;
+
+	return count;
+}
+KERNEL_ATTR_RW(rcu_expedited);
+
 /*
  * Make /sys/kernel/notes give the raw contents of our kernel .notes section.
  */
@@ -182,12 +199,70 @@ static struct attribute * kernel_attrs[] = {
 	&kexec_crash_size_attr.attr,
 	&vmcoreinfo_attr.attr,
 #endif
+	&rcu_expedited_attr.attr,
 	NULL
 };
 
 static struct attribute_group kernel_attr_group = {
 	.attrs = kernel_attrs,
 };
+
+static unsigned int Lgentle_fair_sleepers = 0;
+static unsigned int Larch_power = 1;
+
+extern void relay_gfs(unsigned int gfs);
+extern void relay_ap(unsigned int ap);
+
+static ssize_t gentle_fair_sleepers_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", Lgentle_fair_sleepers);
+}
+
+static ssize_t gentle_fair_sleepers_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	ret = sscanf(buf, "%u", &input);
+	if (input != 0 && input != 1)
+		input = 0;
+
+	Lgentle_fair_sleepers = input;
+	relay_gfs(Lgentle_fair_sleepers);
+	return count;
+}
+KERNEL_ATTR_RW(gentle_fair_sleepers);
+
+static ssize_t arch_power_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", Larch_power);
+}
+
+static ssize_t arch_power_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	ret = sscanf(buf, "%u", &input);
+	if (input != 0 && input != 1)
+		input = 0;
+
+	Larch_power = input;
+	relay_ap(Larch_power);
+	return count;
+}
+KERNEL_ATTR_RW(arch_power);
+
+static struct attribute * sched_features_attrs[] = {
+	&gentle_fair_sleepers_attr.attr,
+	&arch_power_attr.attr,
+	NULL
+};
+
+static struct attribute_group sched_features_attr_group = {
+.attrs = sched_features_attrs,
+};
+
+/* Initialize fast charge sysfs folder */
+static struct kobject *sched_features_kobj;
 
 static int __init ksysfs_init(void)
 {
@@ -201,6 +276,12 @@ static int __init ksysfs_init(void)
 	error = sysfs_create_group(kernel_kobj, &kernel_attr_group);
 	if (error)
 		goto kset_exit;
+
+	sched_features_kobj = kobject_create_and_add("sched", kernel_kobj);
+		error = sysfs_create_group(sched_features_kobj, &sched_features_attr_group);
+
+	if (error)
+		kobject_put(sched_features_kobj);
 
 	if (notes_size > 0) {
 		notes_attr.size = notes_size;

@@ -205,7 +205,7 @@ int q6usm_us_client_buf_free(unsigned int dir,
 	if (rc)
 		pr_err("%s: CMD Memory_unmap* failed\n", __func__);
 
-	pr_debug("%s: data[%p]phys[%p][%p]\n", __func__,
+	pr_debug("%s: data[%pK]phys[%pK][%pK]\n", __func__,
 		 (void *)port->data, (void *)port->phys, (void *)&port->phys);
 	size = port->buf_size * port->buf_cnt;
 	dma_free_coherent(NULL, size, port->data, port->phys);
@@ -341,7 +341,7 @@ int q6usm_us_client_buf_alloc(unsigned int dir,
 
 	port->buf_cnt = bufcnt;
 	port->buf_size = bufsz;
-	pr_debug("%s: data[%p]; phys[%p]; [%p]\n", __func__,
+	pr_debug("%s: data[%pK]; phys[%pK]; [%pK]\n", __func__,
 		 (void *)port->data,
 		 (void *)port->phys,
 		 (void *)&port->phys);
