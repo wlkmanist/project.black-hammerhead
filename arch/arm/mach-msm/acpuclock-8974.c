@@ -98,7 +98,7 @@ static struct scalable scalable[] __initdata = {
 	},
 };
 
-static struct scalable scalable_hfpll1820[] __initdata = {
+/*static struct scalable scalable_hfpll1820[] __initdata = {
 	[CPU0] = {
 		.hfpll_phys_base = 0xF908A000,
 		.l2cpmr_iaddr = 0x4501,
@@ -186,7 +186,7 @@ static struct scalable scalable_hfpll1840[] __initdata = {
 		.sec_clk_sel = 2,
 		.vreg[VREG_HFPLL_A] = { "l2_hfpll", 1840000 },
 	},
-};
+};*/
 
 static struct scalable scalable_hfpll1860[] __initdata = {
 	[CPU0] = {
@@ -1282,6 +1282,12 @@ static int __init get_hfpll_level(char *hfpll_bin)
 		hfpll_lvl = 2;
 	} else if (strcmp(hfpll_bin, "3") == 0) {
 		hfpll_lvl = 3;
+	} else if (strcmp(hfpll_bin, "4") == 0) {
+		hfpll_lvl = 4;
+	} else if (strcmp(hfpll_bin, "5") == 0) {
+		hfpll_lvl = 5;
+	} else if (strcmp(hfpll_bin, "6") == 0) {
+		hfpll_lvl = 6;
 	} else {
 		hfpll_lvl = 0;
 	}
@@ -1342,7 +1348,7 @@ static int __init acpuclk_8974_probe(struct platform_device *pdev)
 		acpuclk_8974_params.l2_freq_tbl_size = sizeof(l2_freq_tbl_v2_ultra);
 	}
 
-	if (hfpll_lvl == 1) {
+	/*if (hfpll_lvl == 1) {
 		acpuclk_8974_params.scalable = scalable_hfpll1820;
 		acpuclk_8974_params.scalable_size = sizeof(scalable_hfpll1820);
 	}
@@ -1353,15 +1359,27 @@ static int __init acpuclk_8974_probe(struct platform_device *pdev)
 	else if (hfpll_lvl == 3) {
 		acpuclk_8974_params.scalable = scalable_hfpll1860;
 		acpuclk_8974_params.scalable_size = sizeof(scalable_hfpll1860);
-	}
+	}*/
 
 	if (hfpll_lvl)
 	{
-		const int vhfpll = hfpll_lvl * 20000 + 1800000;	// 1.8v stock. Increase 20mv each step
+		const int vhfpll = hfpll_lvl * 10000 + 1800000;	// 1.8v stock. Increase 10mv each step
 		int l;
 
 		for (l = CPU0; l <= L2; l++)
+			pr_info("%s: stock %s = %duV\n", KBUILD_MODNAME,
+					acpuclk_8974_params.scalable[l].vreg[VREG_HFPLL_A].name, vhfpll);
+
+		acpuclk_8974_params.scalable = scalable_hfpll1860;
+		acpuclk_8974_params.scalable_size = sizeof(scalable_hfpll1860);
+
+		pr_info("%s: Changing HFPLL voltage to %duV\n", KBUILD_MODNAME, vhfpll);
+		for (l = CPU0; l <= L2; l++)
+		{
 			acpuclk_8974_params.scalable[l].vreg[VREG_HFPLL_A].cur_vdd = vhfpll;
+			pr_info("%s: %s = %duV\n", KBUILD_MODNAME,
+					acpuclk_8974_params.scalable[l].vreg[VREG_HFPLL_A].name, vhfpll);
+		}
 	}
 
 	return acpuclk_krait_init(&pdev->dev, &acpuclk_8974_params);
