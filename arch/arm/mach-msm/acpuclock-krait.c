@@ -1269,6 +1269,9 @@ static void apply_undervolting(void)
 		drv.acpu_freq_tbl[0].vdd_core = 750000;
 		printk(KERN_INFO "[elementalx]: min_voltage='%i'\n", drv.acpu_freq_tbl[0].vdd_core );
 	}
+
+	drv.acpu_freq_tbl[1].vdd_core = drv.acpu_freq_tbl[0].vdd_core;
+	drv.acpu_freq_tbl[2].vdd_core = drv.acpu_freq_tbl[0].vdd_core;
 }
 
 void __init get_krait_bin_format_a(void __iomem *base, struct bin_info *bin)
