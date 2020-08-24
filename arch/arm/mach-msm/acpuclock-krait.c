@@ -1240,38 +1240,18 @@ static void __init krait_apply_vmin(struct acpu_level *tbl)
 
 static void apply_undervolting(void)
 {
-	if (uv_bin == 6) {
-		drv.acpu_freq_tbl[0].vdd_core = 625000;
-	        printk(KERN_INFO "[elementalx]: min_voltage='%i'\n", drv.acpu_freq_tbl[0].vdd_core );
+	int i;
+	for (i = 0; i <= 2; i++) /* apply min voltage to freqs <= 300MHz */
+	{
+		if 	(uv_bin == 6) drv.acpu_freq_tbl[i].vdd_core = 625000;
+		else if (uv_bin == 5) drv.acpu_freq_tbl[i].vdd_core = 650000;
+		else if (uv_bin == 4) drv.acpu_freq_tbl[i].vdd_core = 675000;
+		else if (uv_bin == 3) drv.acpu_freq_tbl[i].vdd_core = 700000;
+		else if (uv_bin == 2) drv.acpu_freq_tbl[i].vdd_core = 725000;
+		else if (uv_bin == 1) drv.acpu_freq_tbl[i].vdd_core = 750000;
 	}
 
-	if (uv_bin == 5) {
-		drv.acpu_freq_tbl[0].vdd_core = 650000;
-	        printk(KERN_INFO "[elementalx]: min_voltage='%i'\n", drv.acpu_freq_tbl[0].vdd_core );
-	}
-
-	if (uv_bin == 4) {
-		drv.acpu_freq_tbl[0].vdd_core = 675000;
-	        printk(KERN_INFO "[elementalx]: min_voltage='%i'\n", drv.acpu_freq_tbl[0].vdd_core );
-	}
-
-	if (uv_bin == 3) {
-		drv.acpu_freq_tbl[0].vdd_core = 700000;
-	        printk(KERN_INFO "[elementalx]: min_voltage='%i'\n", drv.acpu_freq_tbl[0].vdd_core );
-	}
-
-	if (uv_bin == 2) {
-		drv.acpu_freq_tbl[0].vdd_core = 725000;
-	        printk(KERN_INFO "[elementalx]: min_voltage='%i'\n", drv.acpu_freq_tbl[0].vdd_core );
-	}
-
-	if (uv_bin == 1) {
-		drv.acpu_freq_tbl[0].vdd_core = 750000;
-		printk(KERN_INFO "[elementalx]: min_voltage='%i'\n", drv.acpu_freq_tbl[0].vdd_core );
-	}
-
-	drv.acpu_freq_tbl[1].vdd_core = drv.acpu_freq_tbl[0].vdd_core;
-	drv.acpu_freq_tbl[2].vdd_core = drv.acpu_freq_tbl[0].vdd_core;
+	printk(KERN_INFO "[elementalx]: min_voltage='%i'\n", drv.acpu_freq_tbl[0].vdd_core );
 }
 
 void __init get_krait_bin_format_a(void __iomem *base, struct bin_info *bin)
