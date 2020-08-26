@@ -777,6 +777,7 @@ static unsigned int get_cpu_current_load(unsigned int j, unsigned int *record)
 
 static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 {
+	unsigned int load_at_max_freq = 0;
 	unsigned int max_load_freq;
 	
 	unsigned int cur_load = 0;
@@ -799,6 +800,9 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 					
 		if (cur_load > max_load_freq)
 			max_load_freq = cur_load * policy->cur;
+
+		load_at_max_freq += (cur_load * policy->cur) /
+					policy->cpuinfo.max_freq;
 	}
 
 	for_each_online_cpu(j) {
@@ -821,6 +825,8 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		}
 	}
 
+	cpufreq_notify_utilization(policy, load_at_max_freq);
+	
 	//gboost
 	if (g_count > 30) {
 
