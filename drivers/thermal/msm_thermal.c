@@ -28,11 +28,17 @@
 #include <linux/reboot.h>
 #include <linux/syscalls.h>
 
-#define MSM_THERMAL_TEMP_THRESHOLD_CRIT 115
 #define THERMAL_SAFE_DIFF 5
 
-int temp_threshold = 70;
+bool enable_main			= true;	// Enable thermal throttlong logic
+bool enable_extreme			= false;// Extreme OC mode (disable crit power off)
+int  temp_threshold			= 70;	// Thermal limit (throttling)
+int  temp_threshold_crit	= 110;	// Thermal limit (sync and power off)
+
+module_param(enable_main, bool, 0644);
+module_param(enable_extreme, bool, 0444);
 module_param(temp_threshold, int, 0644);
+module_param(temp_threshold_crit, int, 0444);
 
 static struct thermal_info {
 	uint32_t cpuinfo_max_freq;
@@ -127,19 +133,18 @@ static void check_temp(struct work_struct *work)
 	tsens_dev.sensor_num = msm_thermal_info.sensor_id;
 	tsens_get_temp(&tsens_dev, &temp);
 
-	if (temp >= MSM_THERMAL_TEMP_THRESHOLD_CRIT)
+	if (temp >= temp_threshold_crit && !enable_extreme)
 	{
 		pr_info("%s: Power down by soc temp limit theshold (%d)\n",
-			KBUILD_MODNAME, MSM_THERMAL_TEMP_THRESHOLD_CRIT);
+			KBUILD_MODNAME, temp_threshold_crit);
 		sys_sync();
 		kernel_power_off();
 	}
 
-	if (temp_threshold >= 100)
-	/* let's say module disabled at temp threshold >= 100 value (max value at Kernel adiutor) */
+	if (!enable_main)
 	{
 		/* if module disabled we need reshedule to check at least once per second 
-		 * MSM_THERMAL_TEMP_THRESHOLD_CRIT to avoid permanent hardware damage
+		 * temp_threshold_crit value to avoid permanent hardware damage
 		 */
 		schedule_delayed_work_on(0, &check_temp_work, msecs_to_jiffies(1000));
 		return;
