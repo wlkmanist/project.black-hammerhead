@@ -372,10 +372,6 @@ static int bq24192_set_input_i_limit(struct bq24192_chip *chip, int ma)
 				i = 7;
 				custom_ma = FAST_CHARGE_2000;
 				break;
-			case FAST_CHARGE_2400:
-				i = 8;
-				custom_ma = FAST_CHARGE_2400;
-				break;
 			default:
 				break;
 		}
