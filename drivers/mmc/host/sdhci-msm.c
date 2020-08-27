@@ -1363,7 +1363,8 @@ static void sdhci_msm_bus_queue_work(struct sdhci_host *host)
 	spin_lock_irqsave(&host->lock, flags);
 	if (msm_host->msm_bus_vote.min_bw_vote !=
 		msm_host->msm_bus_vote.curr_vote)
-		schedule_delayed_work(&msm_host->msm_bus_vote.vote_work,
+		queue_delayed_work(system_nrt_wq,
+				   &msm_host->msm_bus_vote.vote_work,
 				   msecs_to_jiffies(MSM_MMC_BUS_VOTING_DELAY));
 	spin_unlock_irqrestore(&host->lock, flags);
 }

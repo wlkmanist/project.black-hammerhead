@@ -622,7 +622,7 @@ int hci_conn_del(struct hci_conn *conn)
 	del_timer(&conn->idle_timer);
 	del_timer(&conn->disc_timer);
 	del_timer(&conn->smp_timer);
-	cancel_delayed_work(&conn->rssi_update_work);
+	__cancel_delayed_work(&conn->rssi_update_work);
 	del_timer(&conn->encrypt_pause_timer);
 
 	if (conn->type == ACL_LINK) {
