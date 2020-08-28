@@ -360,12 +360,16 @@ static ssize_t lcd_backlight_store_level(struct device *dev,
 		return -EINVAL;
 
 	level = simple_strtoul(buf, NULL, 10);
-	level = level ? clamp(level,
+	pr_info("%s: raw level is %d\n", __func__, level);
+	level = level ? clamp((level - 1) *
+				  (lm3630->max_brightness -
+			      lm3630->min_brightness) / 254 +
+			      lm3630->min_brightness,
 			      lm3630->min_brightness,
 			      lm3630->max_brightness) : 0;
 
 	lm3630_set_main_current_level(client, level);
-	pr_debug("%s: level=%d\n", __func__, level);
+	pr_info("%s: level=%d\n", __func__, level);
 
 	return count;
 }
