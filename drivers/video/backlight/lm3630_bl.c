@@ -213,9 +213,6 @@ static void lm3630_set_brightness_reg(struct lm3630_device *dev, int level)
 	}
 }
 
-static int min_brightness = 5;
-module_param(min_brightness, int, 0664);
-
 static void lm3630_set_main_current_level(struct i2c_client *client, int level)
 {
 	struct lm3630_device *dev = i2c_get_clientdata(client);
@@ -234,12 +231,17 @@ static void lm3630_set_main_current_level(struct i2c_client *client, int level)
 		if (unlikely(!level)) {
 			lm3630_write_reg(client, CONTROL_REG, BL_OFF);
 		} else {
+			if (level > dev->max_brightness) 
+				level = dev->max_brightness;
+			else if (level < dev->min_brightness) 
+				level = dev->min_brightness;
+	
 			if (level < 15) {
 				max_current = 0;
-				brightness = level - dev->min_brightness;
+				brightness = level - 1;
 				
-				if (brightness < min_brightness) {
-					brightness = min_brightness;
+				if (brightness < dev->min_brightness) {
+					brightness = dev->min_brightness;
 				}
 			} else {
 				brightness = 
