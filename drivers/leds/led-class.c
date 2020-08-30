@@ -57,9 +57,15 @@ static ssize_t led_brightness_store(struct device *dev,
 	if (count == size) {
 		ret = count;
 
-		if (state == LED_OFF)
+		if (state == LED_OFF) {
 			led_trigger_set_default(led_cdev);
-		led_set_brightness(led_cdev, state);
+			led_set_brightness(led_cdev, LED_OFF);
+		} else {
+			if (state <= LED_HALF)
+				led_set_brightness(led_cdev, led_cdev->low_brightness);
+			else
+				led_set_brightness(led_cdev, led_cdev->max_brightness);
+		}
 	}
 
 	return ret;
@@ -92,10 +98,39 @@ static ssize_t led_max_brightness_show(struct device *dev,
 	return snprintf(buf, LED_BUFF_SIZE, "%u\n", led_cdev->max_brightness);
 }
 
+static ssize_t led_low_brightness_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	ssize_t ret = -EINVAL;
+	unsigned long state = 0;
+
+	ret = strict_strtoul(buf, 10, &state);
+	if (!ret) {
+		ret = size;
+		if (state > LED_FULL)
+			state = LED_FULL;
+		led_cdev->low_brightness = state;
+		led_set_brightness(led_cdev, led_cdev->brightness);
+	}
+
+	return ret;
+}
+
+static ssize_t led_low_brightness_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+
+	return snprintf(buf, LED_BUFF_SIZE, "%u\n", led_cdev->low_brightness);
+}
+
 static struct device_attribute led_class_attrs[] = {
 	__ATTR(brightness, 0644, led_brightness_show, led_brightness_store),
 	__ATTR(max_brightness, 0644, led_max_brightness_show,
 			led_max_brightness_store),
+	__ATTR(low_brightness, 0644, led_low_brightness_show,
+			led_low_brightness_store),
 #ifdef CONFIG_LEDS_TRIGGERS
 	__ATTR(trigger, 0644, led_trigger_show, led_trigger_store),
 #endif
@@ -195,7 +230,11 @@ int led_classdev_register(struct device *parent, struct led_classdev *led_cdev)
 	up_write(&leds_list_lock);
 
 	if (!led_cdev->max_brightness)
-		led_cdev->max_brightness = LED_FULL;
+		/* hammerhead CM torch high brightness mode value */
+		led_cdev->max_brightness = 150; // LED_FULL
+	if (!led_cdev->low_brightness)
+		/* hammerhead CM torch default brightness value */
+		led_cdev->low_brightness = 90; // LED_HALF
 
 	led_update_brightness(led_cdev);
 
