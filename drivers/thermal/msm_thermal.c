@@ -133,7 +133,7 @@ static void check_temp(struct work_struct *work)
 	tsens_dev.sensor_num = msm_thermal_info.sensor_id;
 	tsens_get_temp(&tsens_dev, &temp);
 
-	if (temp >= temp_threshold_crit && !enable_extreme)
+	if (unlikely(temp >= temp_threshold_crit && !enable_extreme))
 	{
 		pr_info("%s: Power down by soc temp limit theshold (%d)\n",
 			KBUILD_MODNAME, temp_threshold_crit);
@@ -141,7 +141,7 @@ static void check_temp(struct work_struct *work)
 		kernel_power_off();
 	}
 
-	if (!enable_main)
+	if (unlikely(!enable_main))
 	{
 		/* if module disabled we need reshedule to check at least once per second 
 		 * temp_threshold_crit value to avoid permanent hardware damage
