@@ -37,6 +37,9 @@
 #include <linux/blx.h>
 #endif
 
+static int min_capacity = 0;
+module_param(min_capacity, int, 0644);
+
 #define MODE_REG      0x06
 #define VCELL_REG     0x02
 #define SOC_REG       0x04
@@ -239,9 +242,9 @@ static int max17048_get_capacity_from_soc(struct max17048_chip *chip)
 			/ ((chip->full_soc - chip->empty_soc) * 10000);
 
 #ifdef CONFIG_BLX
-	batt_soc = bound_check(blx_max, 0, batt_soc);
+	batt_soc = bound_check(blx_max, min_capacity, batt_soc);
 #else
-	batt_soc = bound_check(100, 0, batt_soc);
+	batt_soc = bound_check(100, min_capacity, batt_soc);
 #endif
 
 	return batt_soc;
