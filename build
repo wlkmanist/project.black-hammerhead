@@ -30,6 +30,9 @@ case "$PARAM" in
     if [ -z "$VERSION" ]; then
 	echo "Usage: ./build rdy [version letter]"
 	exit -1
+    else
+	$RDY_SCRIPT $VERSION $IMAGE
+	exit 0	
     fi
   ;;
   "--help" | * )
@@ -57,8 +60,4 @@ TIME_DIFF=$(($BUILD_END - $BUILD_START))
 echo ""
 echo -e "Build time: $((TIME_DIFF / 60))m $((TIME_DIFF % 60))s."
 echo ""
-
-if [ "$PARAM" = "rdy" ]; then
-	$RDY_SCRIPT $VERSION $IMAGE
-fi
 
