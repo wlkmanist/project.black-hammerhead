@@ -26,6 +26,7 @@ enum led_brightness {
 	LED_OFF		= 0,
 	LED_HALF	= 127,
 	LED_FULL	= 255,
+	LED_FLASH	= 1000,
 };
 
 struct led_classdev {
