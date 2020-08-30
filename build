@@ -46,8 +46,10 @@ case "$PARAM" in
     exit 0
   ;;
 esac
+[ $? -eq 0 ]  || exit -1
 
 make -j$(nproc --all)
+[ $? -eq 0 ]  || exit -1
 
 BUILD_END=$(date +"%s")
 TIME_DIFF=$(($BUILD_END - $BUILD_START))
