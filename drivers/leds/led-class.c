@@ -61,7 +61,7 @@ static ssize_t led_brightness_store(struct device *dev,
 			led_trigger_set_default(led_cdev);
 			led_set_brightness(led_cdev, LED_OFF);
 		} else {
-			if (!led_cdev->is_torch) {
+			if (likely(!led_cdev->is_torch)) {
 				led_set_brightness(led_cdev, state);
 			} else {
 				if (state <= LED_HALF)

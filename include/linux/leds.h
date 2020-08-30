@@ -33,7 +33,7 @@ struct led_classdev {
 	int			 brightness;
 	int			 max_brightness;
 	int			 low_brightness;
-	bool		 is_torch;
+	bool 		 is_torch;
 	int			 flags;
 
 	/* Lower 16 bits reflect status */
