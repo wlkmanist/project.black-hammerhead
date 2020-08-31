@@ -40,8 +40,8 @@
 #ifdef CONFIG_MAX17048_TWEAKS
 #include <linux/max17048_tweaks.h>
 
-static int min_capacity = 0;
-module_param(min_capacity, int, 0644);
+static bool battery_shutdown = true;
+module_param(battery_shutdown, bool, 0644);
 static bool force_default_temp = false;
 module_param(force_default_temp, bool, 0644);
 #endif
@@ -252,7 +252,7 @@ static int max17048_get_capacity_from_soc(struct max17048_chip *chip)
 #ifdef CONFIG_BLX
 	batt_soc = bound_check(blx_max,
 #ifdef CONFIG_MAX17048_TWEAKS
-			min_capacity,
+			!battery_shutdown,
 #else
 			0,
 #endif
@@ -260,7 +260,7 @@ static int max17048_get_capacity_from_soc(struct max17048_chip *chip)
 #else
 	batt_soc = bound_check(100,
 #ifdef CONFIG_MAX17048_TWEAKS
-			min_capacity,
+			!battery_shutdown,
 #else
 			0,
 #endif
