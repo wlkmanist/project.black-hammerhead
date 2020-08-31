@@ -37,12 +37,14 @@
 #include <linux/blx.h>
 #endif
 
+#ifdef CONFIG_MAX17048_TWEAKS
+#include <linux/max17048_tweaks.h>
+
 static int min_capacity = 0;
 module_param(min_capacity, int, 0644);
 static bool force_default_temp = false;
 module_param(force_default_temp, bool, 0644);
-static int max_voltage_mv = 0;
-module_param(max_voltage_mv, int, 0644);
+#endif
 
 #define MODE_REG      0x06
 #define VCELL_REG     0x02
@@ -85,7 +87,9 @@ struct max17048_chip {
 	int rcomp_co_hot;
 	int rcomp_co_cold;
 	int alert_threshold;
-	int max_avail_mvolt;
+#ifndef CONFIG_MAX17048_TWEAKS
+	int max_mvolt;
+#endif
 	int min_mvolt;
 	int full_soc;
 	int empty_soc;
@@ -246,9 +250,21 @@ static int max17048_get_capacity_from_soc(struct max17048_chip *chip)
 			/ ((chip->full_soc - chip->empty_soc) * 10000);
 
 #ifdef CONFIG_BLX
-	batt_soc = bound_check(blx_max, min_capacity, batt_soc);
+	batt_soc = bound_check(blx_max,
+#ifdef CONFIG_MAX17048_TWEAKS
+			min_capacity,
 #else
-	batt_soc = bound_check(100, min_capacity, batt_soc);
+			0,
+#endif
+			batt_soc);
+#else
+	batt_soc = bound_check(100,
+#ifdef CONFIG_MAX17048_TWEAKS
+			min_capacity,
+#else
+			0,
+#endif
+			batt_soc);
 #endif
 
 	return batt_soc;
@@ -522,6 +538,9 @@ static int max17048_parse_dt(struct device *dev,
 {
 	struct device_node *dev_node = dev->of_node;
 	int ret = 0;
+#ifdef CONFIG_MAX17048_TWEAKS
+	int maxmvolt;
+#endif
 
 	chip->alert_gpio = of_get_named_gpio(dev_node,
 			"max17048,alert_gpio", 0);
@@ -560,16 +579,16 @@ static int max17048_parse_dt(struct device *dev,
 	}
 
 	ret = of_property_read_u32(dev_node, "max17048,max-mvolt",
-				   &max_voltage_mv);
+#ifndef CONFIG_MAX17048_TWEAKS
+				   &chip->max_mvolt);
+#else
+				   &maxmvolt);
+	if (!get_max_voltage_mv())
+		set_max_voltage_mv(maxmvolt);
+#endif
+
 	if (ret) {
 		pr_err("%s: failed to read max voltage\n", __func__);
-		goto out;
-	}
-
-	ret = of_property_read_u32(dev_node, "max17048,max-avail-mvolt",
-				   &chip->max_avail_mvolt);
-	if (ret) {
-		pr_err("%s: failed to read max available voltage\n", __func__);
 		goto out;
 	}
 
@@ -675,9 +694,11 @@ static int qpnp_get_battery_temp(int *temp)
 		return ret;
 	}
 
+#ifdef CONFIG_MAX17048_TWEAKS
 	if (force_default_temp)
 		*temp = DEFAULT_TEMP;
 	else
+#endif
 		*temp = (int)results.physical;
 
 	return 0;
@@ -790,11 +811,20 @@ static int max17048_get_property(struct power_supply *psy,
 		val->intval = max17048_get_prop_present(chip);
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
-		val->intval = (max_voltage_mv >= 4300) ? chip->batt_tech : 2;
+		val->intval =
+#ifdef CONFIG_MAX17048_TWEAKS
+					(get_max_voltage_mv() >= 4300) ? chip->batt_tech : 2;
+#else
+					chip->batt_tech;
+#endif
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
-		val->intval = (max_voltage_mv > chip->max_avail_mvolt) ?
-						chip->max_avail_mvolt : max_voltage_mv * 1000;
+		val->intval =
+#ifdef CONFIG_MAX17048_TWEAKS
+					get_max_voltage_mv() * 1000;
+#else
+					chip->max_mvolt * 1000;
+#endif
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN:
 		val->intval = chip->min_mvolt * 1000;

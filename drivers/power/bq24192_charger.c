@@ -31,6 +31,10 @@
 #include <linux/of_gpio.h>
 #include <linux/qpnp/qpnp-adc.h>
 
+#ifdef CONFIG_MAX17048_TWEAKS
+#include <linux/max17048_tweaks.h>
+#endif
+
 #ifdef CONFIG_FORCE_FAST_CHARGE
 #include <linux/fastchg.h>
 #endif
@@ -1356,7 +1360,12 @@ static int bq24192_power_get_property(struct power_supply *psy,
 		val->intval = bq24192_get_prop_input_voltage(chip);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
-		val->intval = chip->vbat_max_mv * 1000;
+		val->intval =
+#ifndef CONFIG_MAX17048_TWEAKS
+					chip->vbat_max_mv * 1000;
+#else
+					get_max_voltage_mv() * 1000;
+#endif
 		break;
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 		val->intval = bq24192_is_chg_enabled(chip);
