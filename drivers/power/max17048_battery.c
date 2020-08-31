@@ -708,6 +708,18 @@ static int qpnp_get_battery_temp(int *temp)
 }
 #endif
 
+#ifdef CONFIG_MAX17048_TWEAKS
+static int __init get_temp_spoof(char *data)
+{
+	if (strcmp(data, "1") == 0)
+		force_default_temp = true;
+
+	return 0;
+}
+
+__setup("temp_spoof=", get_temp_spoof);
+#endif
+
 static int max17048_get_prop_temp(struct max17048_chip *chip)
 {
 #ifdef CONFIG_SENSORS_QPNP_ADC_VOLTAGE
