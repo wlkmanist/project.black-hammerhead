@@ -39,6 +39,8 @@
 
 static int min_capacity = 0;
 module_param(min_capacity, int, 0644);
+static bool force_default_temp = false;
+module_param(force_default_temp, bool, 0644);
 
 #define MODE_REG      0x06
 #define VCELL_REG     0x02
@@ -664,7 +666,10 @@ static int qpnp_get_battery_temp(int *temp)
 		return ret;
 	}
 
-	*temp = (int)results.physical;
+	if (force_default_temp)
+		*temp = DEFAULT_TEMP;
+	else
+		*temp = (int)results.physical;
 
 	return 0;
 }
