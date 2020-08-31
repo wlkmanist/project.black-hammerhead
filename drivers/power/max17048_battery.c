@@ -85,6 +85,7 @@ struct max17048_chip {
 	int rcomp_co_hot;
 	int rcomp_co_cold;
 	int alert_threshold;
+	int max_avail_mvolt;
 	int min_mvolt;
 	int full_soc;
 	int empty_soc;
@@ -568,6 +569,13 @@ static int max17048_parse_dt(struct device *dev,
 		goto out;
 	}
 
+	ret = of_property_read_u32(dev_node, "max17048,max-avail-mvolt",
+				   &chip->max_avail_mvolt);
+	if (ret) {
+		pr_err("%s: failed to read max available voltage\n", __func__);
+		goto out;
+	}
+
 	ret = of_property_read_u32(dev_node, "max17048,min-mvolt",
 				   &chip->min_mvolt);
 	if (ret) {
@@ -788,7 +796,8 @@ static int max17048_get_property(struct power_supply *psy,
 		val->intval = (max_voltage_mv >= 4300) ? chip->batt_tech : 2;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
-		val->intval = max_voltage_mv * 1000;
+		val->intval = (max_voltage_mv > chip->max_avail_mvolt) ?
+						chip->max_avail_mvolt : max_voltage_mv * 1000;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN:
 		val->intval = chip->min_mvolt * 1000;
