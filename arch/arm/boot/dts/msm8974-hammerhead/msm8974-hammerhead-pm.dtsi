@@ -39,7 +39,7 @@
 			max17048,min-mvolt = <3200>;
 			max17048,full-soc = <970>;
 			max17048,empty-soc = <10>;
-			max17048,batt-tech = <2>;
+			max17048,batt-tech = <3>;
 			max17048,fcc-mah = <2300>;
 			max17048,uvlo-thr-mv = <3000>;
 		};
