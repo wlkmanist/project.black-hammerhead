@@ -706,6 +706,15 @@ config BLX
 	help
 	  Say Y here to enable Battery Life eXtender
 
+config MAX17048_TWEAKS
+	tristate "Maxim MAX17048 fuel gauging tweaks"
+	depends on MAX17048_FUELGAUGE
+	depends on BQ24192_CHARGER
+	default n
+	help
+	  Adds sysfs interface to control min battery level, battery
+	  temperature spoofing and designed max battery voltage.
+
 config UID_CPUTIME
 	tristate "Per-UID cpu time statistics"
 	depends on PROFILING
