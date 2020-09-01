@@ -51,7 +51,8 @@ case "$PARAM" in
 esac
 [ $? -eq 0 ]  || exit -1
 
-make -j$(nproc --all)
+make -j4
+# $(nproc --all)
 [ $? -eq 0 ]  || exit -1
 
 BUILD_END=$(date +"%s")
