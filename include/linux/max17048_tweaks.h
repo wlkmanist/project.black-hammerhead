@@ -9,5 +9,7 @@
 
 int get_max_voltage_mv(void);
 void set_max_voltage_mv(int max_mv_in);
+int get_full_soc(void);
+void set_full_soc(int full_soc_in);
 
 #endif

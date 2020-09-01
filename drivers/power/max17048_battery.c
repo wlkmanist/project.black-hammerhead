@@ -89,9 +89,9 @@ struct max17048_chip {
 	int alert_threshold;
 #ifndef CONFIG_MAX17048_TWEAKS
 	int max_mvolt;
+	int full_soc;
 #endif
 	int min_mvolt;
-	int full_soc;
 	int empty_soc;
 	int batt_tech;
 	int fcc_mah;
@@ -247,25 +247,29 @@ static int max17048_get_capacity_from_soc(struct max17048_chip *chip)
 
 	batt_soc = (((int)buf[0]*256)+buf[1])*19531; /* 0.001953125 */
 	batt_soc = (batt_soc - (chip->empty_soc * 1000000))
+#ifndef CONFIG_MAX17048_TWEAKS
 			/ ((chip->full_soc - chip->empty_soc) * 10000);
+#else
+			/ ((get_full_soc() - chip->empty_soc) * 10000);
+#endif
 
 #ifdef CONFIG_BLX
 	batt_soc = bound_check(blx_max,
 #ifdef CONFIG_MAX17048_TWEAKS
 			!battery_shutdown,
-#else
+#else /* CONFIG_MAX17048_TWEAKS */
 			0,
-#endif
+#endif /* CONFIG_MAX17048_TWEAKS */
 			batt_soc);
-#else
+#else /* CONFIG_BLX */
 	batt_soc = bound_check(100,
 #ifdef CONFIG_MAX17048_TWEAKS
 			!battery_shutdown,
-#else
+#else /* CONFIG_MAX17048_TWEAKS */
 			0,
-#endif
+#endif /* CONFIG_MAX17048_TWEAKS */
 			batt_soc);
-#endif
+#endif /* CONFIG_BLX */
 
 	return batt_soc;
 }
@@ -540,6 +544,7 @@ static int max17048_parse_dt(struct device *dev,
 	int ret = 0;
 #ifdef CONFIG_MAX17048_TWEAKS
 	int maxmvolt;
+	int fullsoc;
 #endif
 
 	chip->alert_gpio = of_get_named_gpio(dev_node,
@@ -578,6 +583,19 @@ static int max17048_parse_dt(struct device *dev,
 		goto out;
 	}
 
+	ret = of_property_read_u32(dev_node, "max17048,full-soc",
+#ifndef CONFIG_MAX17048_TWEAKS
+				   &chip->full_soc);
+#else
+				   &fullsoc);
+	if (!get_full_soc())
+		set_full_soc(fullsoc);
+#endif
+	if (ret) {
+		pr_err("%s: failed to read full soc\n", __func__);
+		goto out;
+	}
+
 	ret = of_property_read_u32(dev_node, "max17048,max-mvolt",
 #ifndef CONFIG_MAX17048_TWEAKS
 				   &chip->max_mvolt);
@@ -586,7 +604,6 @@ static int max17048_parse_dt(struct device *dev,
 	if (!get_max_voltage_mv())
 		set_max_voltage_mv(maxmvolt);
 #endif
-
 	if (ret) {
 		pr_err("%s: failed to read max voltage\n", __func__);
 		goto out;
@@ -596,13 +613,6 @@ static int max17048_parse_dt(struct device *dev,
 				   &chip->min_mvolt);
 	if (ret) {
 		pr_err("%s: failed to read min voltage\n", __func__);
-		goto out;
-	}
-
-	ret = of_property_read_u32(dev_node, "max17048,full-soc",
-				   &chip->full_soc);
-	if (ret) {
-		pr_err("%s: failed to read full soc\n", __func__);
 		goto out;
 	}
 
@@ -639,7 +649,12 @@ static int max17048_parse_dt(struct device *dev,
 			chip->rcomp_co_cold);
 	pr_info("%s: alert_thres = %d full_soc = %d empty_soc = %d uvlo=%d\n",
 			__func__, chip->alert_threshold,
-			chip->full_soc, chip->empty_soc, chip->uvlo_thr_mv);
+#ifndef CONFIG_MAX17048_TWEAKS
+			chip->full_soc,
+#else
+			get_full_soc(),
+#endif
+			chip->empty_soc, chip->uvlo_thr_mv);
 
 out:
 	return ret;
