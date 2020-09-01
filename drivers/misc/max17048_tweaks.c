@@ -7,6 +7,7 @@
  * published by the Free Software Foundation.
  */
 
+#include <linux/module.h>
 #include <linux/init.h>
 #include <linux/device.h>
 #include <linux/miscdevice.h>
@@ -15,6 +16,23 @@
 #include <linux/export.h>
 
 static int max_voltage_mv = 0;
+
+static int __init get_def_max_voltage_mv(char *data)
+{
+    if (strcmp(data, "1") == 0) {
+		set_max_voltage_mv(4200);         /* Li-ion  3.7V  */
+	} else if (strcmp(data, "2") == 0) {
+		set_max_voltage_mv(4350);         /* Li-poly 3.8V  */
+	} else if (strcmp(data, "3") == 0) {
+		set_max_voltage_mv(4400);         /* Li-poly 3.85V */
+	} else {
+		max_voltage_mv = 0;       /* Set from Device Tree  */
+	}
+
+	return 0;
+}
+
+__setup("bat_type=", get_def_max_voltage_mv);
 
 static ssize_t max17048_max_voltage_mv_read(struct device * dev,
             struct device_attribute * attr, char * buf) {
