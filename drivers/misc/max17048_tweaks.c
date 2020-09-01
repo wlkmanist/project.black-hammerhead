@@ -16,6 +16,7 @@
 #include <linux/export.h>
 
 static int max_voltage_mv = 0;
+static int full_soc = 0;
 
 static int __init get_def_max_voltage_mv(char *data)
 {
@@ -72,7 +73,7 @@ static struct miscdevice max17048_tweaks_device =
 	.name = "max17048_tweaks",
     };
 
-int get_max_voltage_mv(void) /// use this to replace max_voltage_mv
+int get_max_voltage_mv(void)
 {
     return max_voltage_mv;
 }
@@ -83,16 +84,30 @@ void set_max_voltage_mv(int data)
  	    if (data >= VBT_MIN_MV && data <= VBT_MAX_MV) {
             max_voltage_mv = (data / 16 + ((data % 16) > 0)) * 16;
             pr_info("Battery max voltage set to %u\n", max_voltage_mv);
+
+                /* 970 - (4352 - max_voltage_mv) * 8 / 16 */
+            full_soc = (max_voltage_mv - 2412) / 2;
+            pr_info("full-soc set to %u\n", full_soc);
 		} else {
 		    pr_info("%s: Invalid input range %u\n", __FUNCTION__, data);
 		}
 }
 EXPORT_SYMBOL(set_max_voltage_mv);
 
+int get_full_soc(void)
+{
+    return full_soc;
+}
+EXPORT_SYMBOL(get_full_soc);
+
+void set_full_soc(int full_soc_in)
+{
+    full_soc = full_soc_in;
+}
+EXPORT_SYMBOL(set_full_soc);
+
 static int __init max17048_tweaks_init(void)
 {
-
-    /// add get max voltage value to init
     int ret;
 
     pr_info("%s: misc_register(%s)\n", __FUNCTION__,
