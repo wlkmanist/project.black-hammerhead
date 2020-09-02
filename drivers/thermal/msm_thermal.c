@@ -28,17 +28,25 @@
 #include <linux/reboot.h>
 #include <linux/syscalls.h>
 
-#define MSM_THERMAL_SAFE_DIFF 5
+#define MSM_THERMAL_SAFE_DIFF			5
+#define MSM_THERMAL_POLLING_FREQ_PRESET	5
 
-bool enable_main			= true;	/* Enable thermal throttlong logic		*/
-bool enable_extreme			= false;/* Extreme OC (disable soc temp limit)	*/
-long temp_threshold			= 70;	/* Thermal limit (throttling)			*/
-long temp_threshold_crit 	= 110;	/* Thermal limit (sync and power off)	*/
+static bool enable_main				= true;	/* Enable thermal throttlong logic		*/
+static bool enable_extreme			= false;/* Extreme OC (disable soc temp limit)	*/
+static long temp_threshold			= 70;	/* Thermal limit (throttling)			*/
+static long temp_threshold_crit 	= 110;	/* Thermal limit (sync and power off)	*/
+static int  polling_freq_preset		= MSM_THERMAL_POLLING_FREQ_PRESET;
 
 module_param(enable_main,			bool, 0644);
 module_param(enable_extreme, 		bool, 0444);
 module_param(temp_threshold, 		long, 0644);
 module_param(temp_threshold_crit, 	long, 0444);
+module_param(polling_freq_preset, 	int , 0644);
+
+const unsigned int polling_val[] = {
+	/*   4,   5,   8,  10, 20, 25, 40, : cycles per second */
+	0, 250, 200, 125, 100, 50, 40, 25,
+};
 
 static struct thermal_info {
 	uint32_t cpuinfo_max_freq;
@@ -77,9 +85,15 @@ static struct msm_thermal_data msm_thermal_info;
 
 static struct delayed_work check_temp_work;
 
-int get_threshold(void)
+inline unsigned long get_polling_interval_jiffies(void)
 {
-	return temp_threshold;
+	if (unlikely(!polling_freq_preset && polling_freq_preset > 7))
+	{
+		pr_info("%s: Restore polling_freq_preset to default", KBUILD_MODNAME);
+		polling_freq_preset = MSM_THERMAL_POLLING_FREQ_PRESET;
+	}
+
+	return msecs_to_jiffies(polling_val[polling_freq_preset]);
 }
 
 static int msm_thermal_cpufreq_callback(struct notifier_block *nfb,
@@ -112,9 +126,9 @@ static void limit_cpu_freqs(uint32_t max_freq)
 	info.pending_change = true;
 
 	if (info.limited_max_freq != info.cpuinfo_max_freq)
-		pr_info("%s: CPU freq limit (%d)\n",
+		pr_debug("%s: CPU freq limit (%d)\n",
 					KBUILD_MODNAME, info.limited_max_freq);
-	else pr_info("%s: Restore CPU freq", KBUILD_MODNAME);
+	else pr_debug("%s: Restore CPU freq", KBUILD_MODNAME);
 
 	get_online_cpus();
 	for_each_online_cpu(cpu) cpufreq_update_policy(cpu);
@@ -152,10 +166,13 @@ static void check_temp(struct work_struct *work)
 
 	temp -= temp_threshold;
 
-	if (info.throttling && temp < -info.safe_diff)
+	if (temp < -info.safe_diff)
 	{
-		limit_cpu_freqs(info.cpuinfo_max_freq);
-		info.throttling = false;
+		if (unlikely(info.throttling))
+		{
+			limit_cpu_freqs(info.cpuinfo_max_freq);
+			info.throttling = false;
+		}
 		goto reschedule;
 	}
 
@@ -178,9 +195,11 @@ static void check_temp(struct work_struct *work)
 
 reschedule:
 	if (temp >= -3 * info.safe_diff)
-		schedule_delayed_work_on(0, &check_temp_work, msecs_to_jiffies(40));
+		schedule_delayed_work_on(0, &check_temp_work,
+						get_polling_interval_jiffies());
 	else
-		schedule_delayed_work_on(0, &check_temp_work, msecs_to_jiffies(250));
+		schedule_delayed_work_on(0, &check_temp_work,
+						msecs_to_jiffies(250));
 }
 
 static int __devinit msm_thermal_dev_probe(struct platform_device *pdev)
