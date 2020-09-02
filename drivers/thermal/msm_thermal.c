@@ -28,28 +28,28 @@
 #include <linux/reboot.h>
 #include <linux/syscalls.h>
 
-#define THERMAL_SAFE_DIFF 5
+#define MSM_THERMAL_SAFE_DIFF 5
 
-bool enable_main			= true;	// Enable thermal throttlong logic
-bool enable_extreme			= false;// Extreme OC mode (disable crit power off)
-int  temp_threshold			= 70;	// Thermal limit (throttling)
-int  temp_threshold_crit	= 110;	// Thermal limit (sync and power off)
+bool enable_main			= true;	/* Enable thermal throttlong logic		*/
+bool enable_extreme			= false;/* Extreme OC (disable soc temp limit)	*/
+long temp_threshold			= 70;	/* Thermal limit (throttling)			*/
+long temp_threshold_crit 	= 110;	/* Thermal limit (sync and power off)	*/
 
-module_param(enable_main, bool, 0644);
-module_param(enable_extreme, bool, 0444);
-module_param(temp_threshold, int, 0644);
-module_param(temp_threshold_crit, int, 0444);
+module_param(enable_main,			bool, 0644);
+module_param(enable_extreme, 		bool, 0444);
+module_param(temp_threshold, 		long, 0644);
+module_param(temp_threshold_crit, 	long, 0444);
 
 static struct thermal_info {
 	uint32_t cpuinfo_max_freq;
 	uint32_t limited_max_freq;
-	const unsigned int safe_diff;
+	long safe_diff;
 	bool throttling;
 	bool pending_change;
 } info = {
 	.cpuinfo_max_freq = LONG_MAX,
 	.limited_max_freq = LONG_MAX,
-	.safe_diff = THERMAL_SAFE_DIFF,
+	.safe_diff = MSM_THERMAL_SAFE_DIFF,
 	.throttling = false,
 	.pending_change = false,
 };
@@ -61,7 +61,7 @@ struct thermal_levels
 }
 	thermal_level[] = 
 {
-	{ 2726400, -THERMAL_SAFE_DIFF },
+	{ 2726400, -MSM_THERMAL_SAFE_DIFF },
 	{ 2496000, 0 },
 	{ 2265600, 1 },
 	{ 1958400, 2 },
@@ -91,7 +91,7 @@ static int msm_thermal_cpufreq_callback(struct notifier_block *nfb,
 		return 0;
 
 	cpufreq_verify_within_limits(policy, policy->cpuinfo.min_freq,
-		info.limited_max_freq);
+					info.limited_max_freq);
 
 	return 0;
 }
@@ -135,16 +135,16 @@ static void check_temp(struct work_struct *work)
 
 	if (unlikely(temp >= temp_threshold_crit && !enable_extreme))
 	{
-		pr_info("%s: Power down by soc temp limit theshold (%d)\n",
-			KBUILD_MODNAME, temp_threshold_crit);
+		pr_err("%s: Power off. Critical SOC temperature (%ld).\n",
+						KBUILD_MODNAME, temp_threshold_crit);
 		sys_sync();
 		kernel_power_off();
 	}
 
 	if (unlikely(!enable_main))
 	{
-		/* if module disabled we need reshedule to check at least once per second 
-		 * temp_threshold_crit value to avoid permanent hardware damage
+		/* if module disabled we need reshedule to check at least once per
+		 * second temp_threshold_crit value to avoid permanent hardware damage
 		 */
 		schedule_delayed_work_on(0, &check_temp_work, msecs_to_jiffies(1000));
 		return;
@@ -152,15 +152,11 @@ static void check_temp(struct work_struct *work)
 
 	temp -= temp_threshold;
 
-	if (info.throttling)
+	if (info.throttling && temp < -info.safe_diff)
 	{
-		if (temp <  -info.safe_diff)
-		{
-			limit_cpu_freqs(info.cpuinfo_max_freq);
-			info.throttling = false;
-			goto reschedule;
-		}
-		freq = thermal_level[1].freq; /* if throttling active min throttle level is 1, else 0 */
+		limit_cpu_freqs(info.cpuinfo_max_freq);
+		info.throttling = false;
+		goto reschedule;
 	}
 
 	for (i = 9; i >= info.throttling; i--)
