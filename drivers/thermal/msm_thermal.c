@@ -35,13 +35,13 @@ static bool enable_main				= true;	/* Enable thermal throttlong logic		*/
 static bool enable_extreme			= false;/* Extreme OC (disable soc temp limit)	*/
 static long temp_threshold			= 70;	/* Thermal limit (throttling)			*/
 static long temp_threshold_crit 	= 110;	/* Thermal limit (sync and power off)	*/
-static int  polling_freq_preset		= MSM_THERMAL_POLLING_FREQ_PRESET;
+static unsigned int polling_freq_preset = MSM_THERMAL_POLLING_FREQ_PRESET;
 
 module_param(enable_main,			bool, 0644);
 module_param(enable_extreme, 		bool, 0444);
 module_param(temp_threshold, 		long, 0644);
 module_param(temp_threshold_crit, 	long, 0444);
-module_param(polling_freq_preset, 	int , 0644);
+module_param(polling_freq_preset, 	uint, 0644);
 
 const unsigned int polling_val[] = {
 	/*   4,   5,   8,  10, 20, 25, 40, : cycles per second */
