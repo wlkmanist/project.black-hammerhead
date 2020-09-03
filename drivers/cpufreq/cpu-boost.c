@@ -36,6 +36,9 @@ module_param(boost_ms, uint, 0644);
 static unsigned int sync_threshold;
 module_param(sync_threshold, uint, 0644);
 
+static unsigned int sync_threshold_min;
+module_param(sync_threshold_min, uint, 0644);
+
 static unsigned int input_boost_freq;
 module_param(input_boost_freq, uint, 0644);
 
@@ -155,6 +158,9 @@ static int boost_mig_sync_thread(void *data)
 				 src_cpu, src_policy.cur);
 			continue;
 		}
+
+		if (sync_threshold_min && src_policy.cur < sync_threshold_min)
+			continue;
 
 		cancel_delayed_work_sync(&s->boost_rem);
 		if (sync_threshold) {
