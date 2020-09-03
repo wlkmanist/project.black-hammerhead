@@ -14,9 +14,66 @@
 #include <linux/max17048_tweaks.h>
 #include <linux/stat.h>
 #include <linux/export.h>
+#include <linux/qpnp/qpnp-adc.h>
 
 static int max_voltage_mv = 0;
 static int full_soc = 0;
+static int bat_current_avg = 0;
+static int bat_current_avg_coef = 0;
+
+static struct delayed_work check_bat_current_work;
+
+static ssize_t qpnp_bat_current_avg_read(struct device * dev,
+            struct device_attribute * attr, char * buf) {
+    return sprintf(buf, "%d\n", -bat_current_avg);
+}
+
+static ssize_t qpnp_bat_current_avg_write(struct device * dev,
+            struct device_attribute * attr, const char * buf, size_t size) {
+    int data;
+
+    if(sscanf(buf, "%d\n", &data) == 1) {
+        bat_current_avg_coef = data;
+        if (!bat_current_avg_coef)
+            pr_info("%s: bat_current_avg disabled\n", __FUNCTION__);
+        else
+            pr_info("%s: bat_current_avg coefficient = %d\n", __FUNCTION__,
+                            bat_current_avg_coef);
+	} else {
+	    pr_info("%s: Invalid input\n", __FUNCTION__);
+	}
+
+    return size;
+}
+
+static DEVICE_ATTR(bat_current_avg, 0644, qpnp_bat_current_avg_read,
+                qpnp_bat_current_avg_write);
+
+static void check_bat_current(struct work_struct *work)
+{
+    struct qpnp_iadc_result i_result;
+
+    if (!bat_current_avg_coef)
+        schedule_delayed_work_on(0, &check_bat_current_work,
+                        msecs_to_jiffies(5000));
+
+	if (qpnp_iadc_is_ready()) {
+		pr_err("%s: qpnp iadc is not ready!\n", __func__);
+		goto reschedule;
+	}
+
+	if (qpnp_iadc_read(EXTERNAL_RSENSE, &i_result)) {
+		pr_err("%s: failed to read iadc\n", __func__);
+		goto reschedule;
+	}
+
+    bat_current_avg += (i_result.result_ua - bat_current_avg) /
+                    bat_current_avg_coef;
+
+reschedule:
+    schedule_delayed_work_on(0, &check_bat_current_work,
+                    msecs_to_jiffies(200));
+}
 
 static int __init get_def_max_voltage_mv(char *data)
 {
@@ -44,7 +101,7 @@ static ssize_t max17048_max_voltage_mv_write(struct device * dev,
             struct device_attribute * attr, const char * buf, size_t size) {
     int data;
 
-    if(sscanf(buf, "%u\n", &data) == 1) {
+    if(sscanf(buf, "%u\n", &data) == 1 && data > 0) {
 	    set_max_voltage_mv(data);
 	} else {
 	    pr_info("%s: Invalid input\n", __FUNCTION__);
@@ -59,6 +116,7 @@ static DEVICE_ATTR(max_voltage_mv, 0644, max17048_max_voltage_mv_read,
 static struct attribute *max17048_tweaks_attributes[] = 
     {
 	&dev_attr_max_voltage_mv.attr,
+    &dev_attr_bat_current_avg.attr,
 	NULL
     };
 
@@ -126,6 +184,9 @@ static int __init max17048_tweaks_init(void)
 	    pr_err("Failed to create sysfs group for device (%s)!\n",
                         max17048_tweaks_device.name);
 	}
+
+    INIT_DELAYED_WORK(&check_bat_current_work, check_bat_current);
+    schedule_delayed_work_on(0, &check_bat_current_work, 5);
 
     return 0;
 }
