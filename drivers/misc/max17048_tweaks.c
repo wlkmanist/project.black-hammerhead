@@ -34,10 +34,7 @@ static ssize_t qpnp_bat_current_avg_write(struct device * dev,
 
     if(sscanf(buf, "%d\n", &data) == 1) {
         bat_current_avg_coef = data;
-        if (!bat_current_avg_coef)
-            pr_info("%s: bat_current_avg disabled\n", __FUNCTION__);
-        else
-            pr_info("%s: bat_current_avg coefficient = %d\n", __FUNCTION__,
+        pr_info("%s: bat_current_avg coefficient = %d\n", __FUNCTION__,
                             bat_current_avg_coef);
 	} else {
 	    pr_info("%s: Invalid input\n", __FUNCTION__);
@@ -53,10 +50,6 @@ static void check_bat_current(struct work_struct *work)
 {
     struct qpnp_iadc_result i_result;
 
-    if (!bat_current_avg_coef)
-        schedule_delayed_work_on(0, &check_bat_current_work,
-                        msecs_to_jiffies(5000));
-
 	if (qpnp_iadc_is_ready()) {
 		pr_err("%s: qpnp iadc is not ready!\n", __func__);
 		goto reschedule;
@@ -67,8 +60,11 @@ static void check_bat_current(struct work_struct *work)
 		goto reschedule;
 	}
 
-    bat_current_avg += (i_result.result_ua - bat_current_avg) /
-                    bat_current_avg_coef;
+    if (!bat_current_avg_coef)
+        bat_current_avg = i_result.result_ua;
+    else
+        bat_current_avg += (i_result.result_ua - bat_current_avg) /
+                        bat_current_avg_coef;
 
 reschedule:
     schedule_delayed_work_on(0, &check_bat_current_work,
