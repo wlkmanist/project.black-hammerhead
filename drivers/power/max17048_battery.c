@@ -90,11 +90,11 @@ struct max17048_chip {
 #ifndef CONFIG_MAX17048_TWEAKS
 	int max_mvolt;
 	int full_soc;
+	int fcc_mah;
 #endif
 	int min_mvolt;
 	int empty_soc;
 	int batt_tech;
-	int fcc_mah;
 	int voltage;
 	int lasttime_capacity_level;
 	int chg_state;
@@ -545,6 +545,7 @@ static int max17048_parse_dt(struct device *dev,
 #ifdef CONFIG_MAX17048_TWEAKS
 	int maxmvolt;
 	int fullsoc;
+	int fccmah;
 #endif
 
 	chip->alert_gpio = of_get_named_gpio(dev_node,
@@ -631,7 +632,13 @@ static int max17048_parse_dt(struct device *dev,
 	}
 
 	ret = of_property_read_u32(dev_node, "max17048,fcc-mah",
+#ifndef CONFIG_MAX17048_TWEAKS
 				   &chip->fcc_mah);
+#else
+				   &fccmah);
+	if (!get_fcc_mah())
+		set_fcc_mah(fccmah);
+#endif
 	if (ret) {
 		pr_err("%s: failed to read batt fcc\n", __func__);
 		goto out;
@@ -869,7 +876,13 @@ static int max17048_get_property(struct power_supply *psy,
 		val->intval = max17048_get_prop_current(chip);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
-		val->intval = chip->fcc_mah;
+		val->intval =
+#ifdef CONFIG_MAX17048_TWEAKS
+					get_fcc_mah();
+#else
+					chip->fcc_mah;
+#endif
+
 		break;
 	default:
 		return -EINVAL;

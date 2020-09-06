@@ -20,6 +20,7 @@ static int max_voltage_mv = 0;
 static int full_soc = 0;
 static int bat_current_avg = 0;
 static int bat_current_avg_coef = 0;
+static int fcc_mah = 0;
 
 static struct delayed_work check_bat_current_work;
 
@@ -109,10 +110,48 @@ static ssize_t max17048_max_voltage_mv_write(struct device * dev,
 static DEVICE_ATTR(max_voltage_mv, 0644, max17048_max_voltage_mv_read,
                 max17048_max_voltage_mv_write);
 
+static ssize_t max17048_fcc_mah_read(struct device * dev,
+            struct device_attribute * attr, char * buf) {
+    return sprintf(buf, "%u\n", fcc_mah);
+}
+
+static ssize_t max17048_fcc_mah_write(struct device * dev,
+            struct device_attribute * attr, const char * buf, size_t size) {
+    int data;
+
+    if(sscanf(buf, "%u\n", &data) == 1) {
+	    set_fcc_mah(data);
+	} else {
+	    pr_info("%s: Invalid input\n", __FUNCTION__);
+	}
+
+    return size;
+}
+
+static DEVICE_ATTR(fcc_mah, 0644, max17048_fcc_mah_read,
+                max17048_fcc_mah_write);
+
+int get_fcc_mah(void)
+{
+    return fcc_mah;
+}
+EXPORT_SYMBOL(get_fcc_mah);
+
+void set_fcc_mah(int data)
+{
+ 	if (data > 0) {
+        fcc_mah = data;
+	} else {
+	    pr_info("%s: Invalid input range %u\n", __FUNCTION__, data);
+	}
+}
+EXPORT_SYMBOL(set_fcc_mah);
+
 static struct attribute *max17048_tweaks_attributes[] = 
     {
 	&dev_attr_max_voltage_mv.attr,
     &dev_attr_bat_current_avg.attr,
+    &dev_attr_fcc_mah.attr,
 	NULL
     };
 

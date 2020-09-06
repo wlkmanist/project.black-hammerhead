@@ -8,8 +8,10 @@
 #define VBT_STEP_MV  16
 
 int get_max_voltage_mv(void);
-void set_max_voltage_mv(int max_mv_in);
+void set_max_voltage_mv(int data);
 int get_full_soc(void);
 void set_full_soc(int full_soc_in);
+int get_fcc_mah(void);
+void set_fcc_mah(int data);
 
 #endif
