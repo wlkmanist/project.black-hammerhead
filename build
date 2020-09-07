@@ -12,7 +12,7 @@ PARAM=$1
 
 export ARCH=arm
 export SUBARCH=arm
-export CROSS_COMPILE=/mnt/Data/tools/linaro-cortex-toolchains/arm-cortex_a15-linux-gnueabihf-linaro_4.7.4-2014.04/bin/arm-cortex_a15-linux-gnueabihf-
+export CROSS_COMPILE=/mnt/Data/tools/UBERTC-4.9.4/bin/arm-eabi-
 
 case "$PARAM" in
   "")
