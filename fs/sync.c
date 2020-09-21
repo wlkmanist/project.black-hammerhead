@@ -23,6 +23,10 @@
 #endif
 
 #ifdef CONFIG_DYNAMIC_FSYNC
+#ifdef CONFIG_MAX17048_TWEAKS
+#include <linux/max17048_tweaks.h>
+#endif
+
 extern bool power_suspend_active;
 extern bool dyn_fsync_active;
 #endif
@@ -254,7 +258,11 @@ int vfs_fsync_range(struct file *file, loff_t start, loff_t end, int datasync)
 		return 0;
 
 #ifdef CONFIG_DYNAMIC_FSYNC
-	if (likely(dyn_fsync_active && !power_suspend_active))
+	if (likely(dyn_fsync_active && !power_suspend_active
+#ifdef CONFIG_MAX17048_TWEAKS
+				&& !batt_soc_is_low
+#endif
+				))
 		return 0;
 	else {
 #endif
@@ -401,7 +409,11 @@ SYSCALL_DEFINE1(fsync, unsigned int, fd)
 	if (!fsync_enabled)
 		return 0;
 #ifdef CONFIG_DYNAMIC_FSYNC
-	if (likely(dyn_fsync_active && !power_suspend_active))
+	if (likely(dyn_fsync_active && !power_suspend_active
+#ifdef CONFIG_MAX17048_TWEAKS
+				&& !batt_soc_is_low
+#endif
+				))
 		return 0;
 	else
 #endif
@@ -415,7 +427,11 @@ SYSCALL_DEFINE1(fdatasync, unsigned int, fd)
 		return 0;
 		
 #if 0
-	if (likely(dyn_fsync_active && !power_suspend_active))
+	if (likely(dyn_fsync_active && !power_suspend_active
+#ifdef CONFIG_MAX17048_TWEAKS
+				&& !batt_soc_is_low
+#endif
+				))
 		return 0;
 	else
 #endif
@@ -493,7 +509,11 @@ SYSCALL_DEFINE(sync_file_range)(int fd, loff_t offset, loff_t nbytes,
 				unsigned int flags)
 {
 #ifdef CONFIG_DYNAMIC_FSYNC
-	if (likely(dyn_fsync_active && !power_suspend_active))
+	if (likely(dyn_fsync_active && !power_suspend_active
+#ifdef CONFIG_MAX17048_TWEAKS
+				&& !batt_soc_is_low
+#endif
+				))
 		return 0;
 	else {
 #endif
@@ -599,7 +619,11 @@ SYSCALL_DEFINE(sync_file_range2)(int fd, unsigned int flags,
 				 loff_t offset, loff_t nbytes)
 {
 #ifdef CONFIG_DYNAMIC_FSYNC
-	if (likely(dyn_fsync_active && !power_suspend_active))
+	if (likely(dyn_fsync_active && !power_suspend_active
+#ifdef CONFIG_MAX17048_TWEAKS
+				&& !batt_soc_is_low
+#endif
+				))
 		return 0;
 	else
 #endif
