@@ -14,4 +14,8 @@ void set_full_soc(int full_soc_in);
 int get_fcc_mah(void);
 void set_fcc_mah(int data);
 
+#ifdef CONFIG_DYNAMIC_FSYNC
+extern bool batt_soc_is_low;
+#endif
+
 #endif

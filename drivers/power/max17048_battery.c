@@ -44,6 +44,11 @@ static bool battery_shutdown = true;
 module_param(battery_shutdown, bool, 0644);
 static bool force_default_temp = false;
 module_param(force_default_temp, bool, 0644);
+
+#ifdef CONFIG_DYNAMIC_FSYNC
+static bool low_batt_disable_dyn_fsync = true;
+module_param(low_batt_disable_dyn_fsync, bool, 0644);
+#endif
 #endif
 
 #define MODE_REG      0x06
@@ -270,6 +275,13 @@ static int max17048_get_capacity_from_soc(struct max17048_chip *chip)
 #endif /* CONFIG_MAX17048_TWEAKS */
 			batt_soc);
 #endif /* CONFIG_BLX */
+
+#if defined CONFIG_MAX17048_TWEAKS && defined CONFIG_DYNAMIC_FSYNC
+	if (low_batt_disable_dyn_fsync)
+		batt_soc_is_low = batt_soc < 5;
+	else
+		batt_soc_is_low = false;
+#endif
 
 	return batt_soc;
 }

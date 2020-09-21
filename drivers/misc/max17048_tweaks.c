@@ -22,6 +22,10 @@ static int bat_current_avg = 0;
 static int bat_current_avg_coef = 0;
 static int fcc_mah = 0;
 
+#ifdef CONFIG_DYNAMIC_FSYNC
+bool batt_soc_is_low = false;
+#endif
+
 static struct delayed_work check_bat_current_work;
 
 static ssize_t qpnp_bat_current_avg_read(struct device * dev,
