@@ -69,7 +69,7 @@ struct thermal_levels
 }
 	thermal_level[] = 
 {
-	{ 2726400, -MSM_THERMAL_SAFE_DIFF },
+	{ 2726400, -1},
 	{ 2496000, 0 },
 	{ 2265600, 1 },
 	{ 1958400, 2 },
