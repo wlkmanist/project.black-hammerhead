@@ -20,13 +20,17 @@ static int max_voltage_mv = 0;
 static int full_soc = 0;
 static int bat_current_avg = 0;
 static int bat_current_avg_coef = 0;
+static int bat_power_avg = 0;
+static int bat_power_avg_coef = 0;
 static int fcc_mah = 0;
+int bat_voltage_now = 0;
 
 #ifdef CONFIG_DYNAMIC_FSYNC
 bool batt_soc_is_low = false;
 #endif
 
 static struct delayed_work check_bat_current_work;
+static struct delayed_work check_bat_power_work;
 
 static ssize_t qpnp_bat_current_avg_read(struct device * dev,
             struct device_attribute * attr, char * buf) {
@@ -73,6 +77,55 @@ static void check_bat_current(struct work_struct *work)
 
 reschedule:
     schedule_delayed_work_on(0, &check_bat_current_work,
+                    msecs_to_jiffies(200));
+}
+
+static ssize_t qpnp_bat_power_avg_read(struct device * dev,
+            struct device_attribute * attr, char * buf) {
+    return sprintf(buf, "%d\n", bat_power_avg);
+}
+
+static ssize_t qpnp_bat_power_avg_write(struct device * dev,
+            struct device_attribute * attr, const char * buf, size_t size) {
+    int data;
+
+    if(sscanf(buf, "%d\n", &data) == 1) {
+        bat_power_avg_coef = data;
+        pr_info("%s: bat_power_avg coefficient = %d\n", __FUNCTION__,
+                            bat_power_avg_coef);
+	} else {
+	    pr_info("%s: Invalid input\n", __FUNCTION__);
+	}
+
+    return size;
+}
+
+static DEVICE_ATTR(bat_power_avg, 0644, qpnp_bat_power_avg_read,
+                qpnp_bat_power_avg_write);
+
+static void check_bat_power(struct work_struct *work)
+{
+    struct qpnp_iadc_result i_result;
+
+	if (qpnp_iadc_is_ready()) {
+		pr_err("%s: qpnp iadc is not ready!\n", __func__);
+		goto reschedule;
+	}
+
+	if (qpnp_iadc_read(EXTERNAL_RSENSE, &i_result)) {
+		pr_err("%s: failed to read iadc\n", __func__);
+		goto reschedule;
+	}
+
+    if (!bat_power_avg_coef)
+        /* uA * mV / 1000 = uW */
+        bat_power_avg = i_result.result_ua * bat_voltage_now / 1000;
+    else
+        bat_power_avg += (i_result.result_ua * bat_voltage_now / 1000 -
+                        bat_power_avg) / bat_power_avg_coef;
+
+reschedule:
+    schedule_delayed_work_on(0, &check_bat_power_work,
                     msecs_to_jiffies(200));
 }
 
@@ -155,6 +208,7 @@ static struct attribute *max17048_tweaks_attributes[] =
     {
 	&dev_attr_max_voltage_mv.attr,
     &dev_attr_bat_current_avg.attr,
+    &dev_attr_bat_power_avg.attr,
     &dev_attr_fcc_mah.attr,
 	NULL
     };
@@ -226,6 +280,8 @@ static int __init max17048_tweaks_init(void)
 
     INIT_DELAYED_WORK(&check_bat_current_work, check_bat_current);
     schedule_delayed_work_on(0, &check_bat_current_work, 5);
+    INIT_DELAYED_WORK(&check_bat_power_work, check_bat_power);
+    schedule_delayed_work_on(0, &check_bat_power_work, 5);
 
     return 0;
 }

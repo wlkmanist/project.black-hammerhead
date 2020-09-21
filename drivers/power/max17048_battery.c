@@ -297,6 +297,9 @@ static int max17048_get_vcell(struct max17048_chip *chip)
 	} else {
 		chip->vcell = vcell >> 4;
 		chip->voltage = (chip->vcell * 5) >> 2;
+#ifdef CONFIG_MAX17048_TWEAKS
+		bat_voltage_now = chip->voltage;
+#endif
 	}
 
 	return 0;
