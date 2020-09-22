@@ -40,13 +40,13 @@
 #ifdef CONFIG_MAX17048_TWEAKS
 #include <linux/max17048_tweaks.h>
 
-static bool battery_shutdown = true;
+static bool __read_mostly battery_shutdown = true;
 module_param(battery_shutdown, bool, 0644);
-static bool force_default_temp = false;
+static bool __read_mostly force_default_temp = false;
 module_param(force_default_temp, bool, 0644);
 
 #ifdef CONFIG_DYNAMIC_FSYNC
-static bool low_batt_disable_dyn_fsync = true;
+static bool __read_mostly low_batt_disable_dyn_fsync = true;
 module_param(low_batt_disable_dyn_fsync, bool, 0644);
 #endif
 #endif

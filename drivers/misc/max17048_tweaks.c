@@ -16,13 +16,13 @@
 #include <linux/export.h>
 #include <linux/qpnp/qpnp-adc.h>
 
-static int max_voltage_mv = 0;
+static int __read_mostly max_voltage_mv = 0;
 static int full_soc = 0;
 static int bat_current_avg = 0;
-static int bat_current_avg_coef = 0;
+static int __read_mostly bat_current_avg_coef = 0;
 static int bat_power_avg = 0;
-static int bat_power_avg_coef = 0;
-static int fcc_mah = 0;
+static int __read_mostly bat_power_avg_coef = 0;
+static int __read_mostly fcc_mah = 0;
 int bat_voltage_now = 0;
 
 #ifdef CONFIG_DYNAMIC_FSYNC
