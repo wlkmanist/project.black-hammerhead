@@ -59,6 +59,7 @@ kernel/hz.bc
 #
 !.gitignore
 !.mailmap
+!.vscode
 
 #
 # Generated include files

@@ -1,0 +1,32 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Release build",
+            "type": "shell",
+            "command": "./build def"
+        },
+        {
+            "label": "Debug build",
+            "type": "shell",
+            "command": "./build dbg"
+        },
+        {
+            "label": "Quick build",
+            "type": "shell",
+            "command": "./build",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Clean and build",
+            "type": "shell",
+            "command": "./build cln"
+        }
+    ]
+}
