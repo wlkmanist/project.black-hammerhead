@@ -31,11 +31,20 @@
 #define MSM_THERMAL_SAFE_DIFF			5
 #define MSM_THERMAL_POLLING_FREQ_PRESET	5
 
-static bool enable_main				= true;	/* Enable thermal throttlong logic		*/
-static bool enable_extreme			= false;/* Extreme OC (disable soc temp limit)	*/
-static long temp_threshold			= 70;	/* Thermal limit (throttling)			*/
-static long temp_threshold_crit 	= 110;	/* Thermal limit (sync and power off)	*/
-static unsigned int polling_freq_preset = MSM_THERMAL_POLLING_FREQ_PRESET;
+/* Enable thermal throttlong logic		*/
+static bool __read_mostly enable_main			= true;
+
+/* Extreme OC (disable soc temp limit)	*/
+static bool __read_mostly enable_extreme		= false;
+
+/* Thermal limit (throttling)			*/
+static long __read_mostly temp_threshold		= 70;
+
+/* Thermal limit (sync and power off)	*/
+static long __read_mostly temp_threshold_crit	= 110;
+
+static unsigned int __read_mostly polling_freq_preset =
+				MSM_THERMAL_POLLING_FREQ_PRESET;
 
 module_param(enable_main,			bool, 0644);
 module_param(enable_extreme, 		bool, 0444);
