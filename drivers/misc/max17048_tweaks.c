@@ -82,7 +82,7 @@ reschedule:
 
 static ssize_t qpnp_bat_power_avg_read(struct device * dev,
             struct device_attribute * attr, char * buf) {
-    return sprintf(buf, "%d\n", -bat_power_avg);
+    return sprintf(buf, "%+08d\n", bat_power_avg);
 }
 
 static ssize_t qpnp_bat_power_avg_write(struct device * dev,
