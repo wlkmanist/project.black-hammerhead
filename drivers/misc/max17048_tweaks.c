@@ -82,7 +82,7 @@ reschedule:
 
 static ssize_t qpnp_bat_power_avg_read(struct device * dev,
             struct device_attribute * attr, char * buf) {
-    return sprintf(buf, "%d\n", bat_power_avg);
+    return sprintf(buf, "%d\n", -bat_power_avg);
 }
 
 static ssize_t qpnp_bat_power_avg_write(struct device * dev,
@@ -119,9 +119,9 @@ static void check_bat_power(struct work_struct *work)
 
     if (!bat_power_avg_coef)
         /* uA * mV / 1000 = uW */
-        bat_power_avg = i_result.result_ua * bat_voltage_now / 1000;
+        bat_power_avg = i_result.result_ua / 1000 * bat_voltage_now;
     else
-        bat_power_avg += (i_result.result_ua * bat_voltage_now / 1000 -
+        bat_power_avg += (i_result.result_ua / 1000 * bat_voltage_now -
                         bat_power_avg) / bat_power_avg_coef;
 
 reschedule:
