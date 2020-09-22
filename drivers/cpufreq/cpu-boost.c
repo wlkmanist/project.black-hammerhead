@@ -26,23 +26,59 @@
 
 static DEFINE_PER_CPU(struct cpu_sync, sync_info);
 
+/* Workqueue used to run boosting algorithms on */
 static struct workqueue_struct *cpu_boost_wq;
 
+/* Instant input boosting work */
 static struct work_struct input_boost_work;
 
-static unsigned int boost_ms;
+/*
+ * Time in milliseconds to keep frequencies of source and destination cpus
+ * synchronized after the task migration event between them reported by sched.
+ */
+static unsigned int __read_mostly boost_ms;
 module_param(boost_ms, uint, 0644);
 
-static unsigned int sync_threshold;
+/*
+ * Boolean to determine whether the module should react to all task migration
+ * events or only to those which maintain task load at least that specified by
+ * migration_load_threshold. This variable also changes the way CPU frequencies
+ * are going to be changed: when it is set to false, frequencies of source and
+ * destination cpus are simply synchronized to a source's one; in case this is
+ * set to true, the frequency is changed to either the load fraction of current
+ * policy maximum or source's frequency, choosing the biggest of two.
+ */
+static bool __read_mostly load_based_syncs = true;
+module_param(load_based_syncs, bool, 0644);
+
+/*
+ * Minimum task load that is considered as noticeable. If a task load is less
+ * than this value, frequency synchronization will not occur.  Note that this
+ * threshold is used only if load_based_syncs is enabled.
+ */
+static unsigned int __read_mostly migration_load_threshold = 30;
+module_param(migration_load_threshold, uint, 0644);
+
+/*
+ * Frequency cap for synchronization algorithm. Shared frequency of synchronized
+ * cpus will not go above this threshold if it is set to non-zero value.
+ */
+static unsigned int __read_mostly sync_threshold;
 module_param(sync_threshold, uint, 0644);
 
-static unsigned int sync_threshold_min;
+static unsigned int __read_mostly sync_threshold_min;
 module_param(sync_threshold_min, uint, 0644);
 
-static unsigned int input_boost_freq;
+static unsigned int __read_mostly input_boost_freq;
 module_param(input_boost_freq, uint, 0644);
 
-static unsigned int input_boost_ms = 0;
+/*
+ * Time in milliseconds to keep frequencies of all online cpus boosted after an
+ * input event.  Note that multiple input events, that occurred during the time
+ * interval which is less or equal to min_input_interval, will be accounted as
+ * one.
+ */
+static unsigned int __read_mostly input_boost_ms = 0;
 module_param(input_boost_ms, uint, 0644);
 
 static u64 last_input_time;
@@ -126,14 +162,13 @@ static void do_input_boost_rem(struct work_struct *work)
 
 static int boost_mig_sync_thread(void *data)
 {
-	int dest_cpu = (int) data;
-	int src_cpu, ret;
+	int dest_cpu = (int)data, src_cpu, ret;
 	struct cpu_sync *s = &per_cpu(sync_info, dest_cpu);
-	struct cpufreq_policy dest_policy;
-	struct cpufreq_policy src_policy;
+	struct cpufreq_policy dest_policy, src_policy;
 	unsigned long flags;
+	unsigned int req_freq;
 
-	while(1) {
+	for (;;) {
 		wait_event_interruptible(s->sync_wq, s->pending ||
 					kthread_should_stop());
 
@@ -145,35 +180,30 @@ static int boost_mig_sync_thread(void *data)
 		src_cpu = s->src_cpu;
 		spin_unlock_irqrestore(&s->lock, flags);
 
-		ret = cpufreq_get_policy(&src_policy, src_cpu);
-		if (ret)
+		ret  = cpufreq_get_policy(&src_policy, src_cpu);
+		ret |= cpufreq_get_policy(&dest_policy, dest_cpu);
+		if (IS_ERR_VALUE(ret))
 			continue;
 
-		ret = cpufreq_get_policy(&dest_policy, dest_cpu);
-		if (ret)
+		req_freq = max(dest_policy.max * s->task_load / 100, src_policy.cur);
+
+		if (sync_threshold)
+			req_freq = min(req_freq, sync_threshold);
+
+		if (unlikely(req_freq <= dest_policy.cpuinfo.min_freq))
 			continue;
 
-		if (src_policy.cur == src_policy.cpuinfo.min_freq) {
-			pr_debug("No sync. Source CPU%d@%dKHz at min freq\n",
-				 src_cpu, src_policy.cur);
-			continue;
-		}
-
-		if (sync_threshold_min && src_policy.cur < sync_threshold_min)
+		if (sync_threshold_min && req_freq < sync_threshold_min)
 			continue;
 
-		cancel_delayed_work_sync(&s->boost_rem);
-		if (sync_threshold) {
-			if (src_policy.cur >= sync_threshold)
-				s->boost_min = sync_threshold;
-			else
-				s->boost_min = src_policy.cur;
-		} else {
-			s->boost_min = src_policy.cur;
-		}
+		if (delayed_work_pending(&s->boost_rem))
+			cancel_delayed_work_sync(&s->boost_rem);
+
+		s->boost_min = req_freq;
+
 		/* Force policy re-evaluation to trigger adjust notifier. */
 		get_online_cpus();
-		if (cpu_online(src_cpu))
+		if (likely(cpu_online(src_cpu))) {
 			/*
 			 * Send an unchanged policy update to the source
 			 * CPU. Even though the policy isn't changed from
@@ -184,7 +214,9 @@ static int boost_mig_sync_thread(void *data)
 			 * event without interference from a min sample time.
 			 */
 			cpufreq_update_policy(src_cpu);
-		if (cpu_online(dest_cpu)) {
+		}
+
+		if (likely(cpu_online(dest_cpu))) {
 			cpufreq_update_policy(dest_cpu);
 			queue_delayed_work_on(dest_cpu, cpu_boost_wq,
 				&s->boost_rem, msecs_to_jiffies(boost_ms));
@@ -202,18 +234,26 @@ static int boost_migration_notify(struct notifier_block *nb,
 {
 	unsigned long flags;
 	struct cpu_sync *s = &per_cpu(sync_info, dest_cpu);
+	struct cpufreq_policy src_policy;
 
 	if (!boost_ms)
 		return NOTIFY_OK;
 
+	if (unlikely(cpufreq_get_policy(&src_policy, (unsigned int) arg)))
+		pr_err("%s: Failed to get cpu policy.\n", KBUILD_MODNAME);
+	else
+		if (load_based_syncs && src_policy.util < migration_load_threshold)
+			return NOTIFY_OK;
+
 	/* Avoid deadlock in try_to_wake_up() */
-	if (s->thread == current)
+	if (unlikely(s->thread == current))
 		return NOTIFY_OK;
 
 	pr_debug("Migration: CPU%d --> CPU%d\n", (int) arg, (int) dest_cpu);
 	spin_lock_irqsave(&s->lock, flags);
 	s->pending = true;
 	s->src_cpu = (int) arg;
+	s->task_load = load_based_syncs ? src_policy.util : 0;
 	spin_unlock_irqrestore(&s->lock, flags);
 	/*
 	* Avoid issuing recursive wakeup call, as sync thread itself could be
@@ -221,7 +261,7 @@ static int boost_migration_notify(struct notifier_block *nb,
 	* of a cpu could be running for a short while with its affinity broken
 	* because of CPU hotplug.
 	*/
-	if (!atomic_cmpxchg(&s->being_woken, 0, 1)) {
+	if (likely(!atomic_cmpxchg(&s->being_woken, 0, 1))) {
 		wake_up(&s->sync_wq);
 		atomic_set(&s->being_woken, 0);
 	}

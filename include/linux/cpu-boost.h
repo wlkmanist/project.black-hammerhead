@@ -23,6 +23,7 @@ struct cpu_sync {
 	int src_cpu;
 	unsigned int boost_min;
 	unsigned int input_boost_min;
+	unsigned int task_load;
 };
 
 struct cpu_sync *get_actual_sync_info(void);
