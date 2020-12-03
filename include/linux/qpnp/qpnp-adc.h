@@ -1509,4 +1509,8 @@ static inline int32_t qpnp_adc_tm_is_ready(void)
 { return -ENXIO; }
 #endif
 
+#ifdef CONFIG_MAX17048_TWEAKS
+extern bool get_bat_temp_is_spoofing(void);
+#endif
+
 #endif

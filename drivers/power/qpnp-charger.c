@@ -1377,7 +1377,11 @@ get_prop_batt_temp(struct qpnp_chg_chip *chip)
 	int rc = 0;
 	struct qpnp_vadc_result results;
 
-	if (chip->use_default_batt_values || !get_prop_batt_present(chip))
+	if (chip->use_default_batt_values || !get_prop_batt_present(chip)
+#ifdef CONFIG_MAX17048_TWEAKS
+					|| get_bat_temp_is_spoofing()
+#endif
+	)
 		return DEFAULT_TEMP;
 
 	rc = qpnp_vadc_read(LR_MUX1_BATT_THERM, &results);

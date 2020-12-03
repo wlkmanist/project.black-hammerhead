@@ -755,6 +755,11 @@ static int __init get_temp_spoof(char *data)
 }
 
 __setup("temp_spoof=", get_temp_spoof);
+
+bool get_bat_temp_is_spoofing(void)
+{
+	return force_default_temp;
+}
 #endif
 
 static int max17048_get_prop_temp(struct max17048_chip *chip)
