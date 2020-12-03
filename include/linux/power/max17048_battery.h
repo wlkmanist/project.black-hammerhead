@@ -14,4 +14,9 @@ struct max17048_platform_data {
 	int alert_threshold;
 	int alert_gpio;
 };
+
+#ifdef CONFIG_MAX17048_TWEAKS
+bool get_bat_temp_is_spoofing(void);
+#endif
+
 #endif

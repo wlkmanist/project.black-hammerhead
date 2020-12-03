@@ -26,6 +26,10 @@
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/suspend.h>
 
+#ifdef CONFIG_MAX17048_TWEAKS
+#include <linux/power/max17048_battery.h>
+#endif
+
 struct batt_tm_data {
 	struct device *dev;
 	struct power_supply tm_psy;
@@ -116,6 +120,18 @@ static void batt_tm_worker(struct work_struct *work)
 
 	pr_debug("temp = %d state = %s\n", temp,
 		batt_tm->tm_noti_stat == ADC_TM_WARM_STATE ? "warm" : "cool");
+
+#ifdef CONFIG_MAX17048_TWEAKS
+	if (get_bat_temp_is_spoofing()) {
+		i = 0;
+		batt_tm->adc_param.low_temp =
+					batt_tm->warm_cfg[i].next_cool_thr;
+		batt_tm->adc_param.high_temp =
+					batt_tm->warm_cfg[i].next_warm_thr;
+		tm_action = batt_tm->warm_cfg[i].action;
+		batt_health = batt_tm->warm_cfg[i].health;
+	} else
+#endif
 
 	if (batt_tm->tm_noti_stat == ADC_TM_WARM_STATE) {
 		i = batt_tm->warm_cfg_size - 1;
