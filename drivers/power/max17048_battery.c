@@ -44,6 +44,8 @@ static bool __read_mostly battery_shutdown = true;
 module_param(battery_shutdown, bool, 0644);
 static bool __read_mostly force_default_temp = false;
 module_param(force_default_temp, bool, 0644);
+static int __read_mostly batt_soc_coeff = 19531; /* 0.001953125 by default */
+module_param(batt_soc_coeff, int, 0644);
 
 #ifdef CONFIG_DYNAMIC_FSYNC
 static bool __read_mostly low_batt_disable_dyn_fsync = true;
@@ -250,7 +252,7 @@ static int max17048_get_capacity_from_soc(struct max17048_chip *chip)
 
 	pr_debug("%s: SOC raw = 0x%x%x\n", __func__, buf[0], buf[1]);
 
-	batt_soc = (((int)buf[0]*256)+buf[1])*19531; /* 0.001953125 */
+	batt_soc = (((int)buf[0]*256)+buf[1])*batt_soc_coeff;
 	batt_soc = (batt_soc - (chip->empty_soc * 1000000))
 #ifndef CONFIG_MAX17048_TWEAKS
 			/ ((chip->full_soc - chip->empty_soc) * 10000);
