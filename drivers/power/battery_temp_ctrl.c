@@ -121,18 +121,6 @@ static void batt_tm_worker(struct work_struct *work)
 	pr_debug("temp = %d state = %s\n", temp,
 		batt_tm->tm_noti_stat == ADC_TM_WARM_STATE ? "warm" : "cool");
 
-#ifdef CONFIG_MAX17048_TWEAKS
-	if (get_bat_temp_is_spoofing()) {
-		i = 0;
-		batt_tm->adc_param.low_temp =
-					batt_tm->warm_cfg[i].next_cool_thr;
-		batt_tm->adc_param.high_temp =
-					batt_tm->warm_cfg[i].next_warm_thr;
-		tm_action = batt_tm->warm_cfg[i].action;
-		batt_health = batt_tm->warm_cfg[i].health;
-	} else
-#endif
-
 	if (batt_tm->tm_noti_stat == ADC_TM_WARM_STATE) {
 		i = batt_tm->warm_cfg_size - 1;
 		while ((batt_tm->adc_param.high_temp
@@ -235,12 +223,18 @@ static int batt_tm_notification_start(struct batt_tm_data *batt_tm)
 					batt_tm->batt_vreg_uv);
 	}
 
+#ifdef CONFIG_MAX17048_TWEAKS
+	if (get_bat_temp_is_spoofing())
+	batt_tm->adc_param.state_request =
+				ADC_TM_HIGH_LOW_THR_DISABLE;
+	else
+#endif
+	batt_tm->adc_param.state_request =
+				ADC_TM_HIGH_LOW_THR_ENABLE;
 	batt_tm->adc_param.low_temp =
 				batt_tm->warm_cfg[0].next_cool_thr;
 	batt_tm->adc_param.high_temp =
 				batt_tm->warm_cfg[0].next_warm_thr;
-	batt_tm->adc_param.state_request =
-				ADC_TM_HIGH_LOW_THR_ENABLE;
 	batt_tm->adc_param.timer_interval = ADC_MEAS1_INTERVAL_8S;
 	batt_tm->adc_param.btm_ctx = batt_tm;
 	batt_tm->adc_param.threshold_notification =
