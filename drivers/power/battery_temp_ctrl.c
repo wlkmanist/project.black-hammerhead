@@ -227,7 +227,7 @@ static int batt_tm_notification_start(struct batt_tm_data *batt_tm)
 	if (get_bat_temp_is_spoofing())
 	batt_tm->adc_param.state_request =
 				ADC_TM_LOW_THR_ENABLE;
-						/* Enable only high voltage threshold */
+						/* Enable only low voltage threshold */
 	else
 #endif
 	batt_tm->adc_param.state_request =
