@@ -24,6 +24,10 @@
 #include <linux/time.h>
 #include <linux/cpu-boost.h>
 
+#ifdef CONFIG_STATE_NOTIFIER
+#include <linux/state_notifier.h>
+#endif
+
 static DEFINE_PER_CPU(struct cpu_sync, sync_info);
 
 /* Workqueue used to run boosting algorithms on */
@@ -80,6 +84,11 @@ module_param(input_boost_freq, uint, 0644);
  */
 static unsigned int __read_mostly input_boost_ms = 0;
 module_param(input_boost_ms, uint, 0644);
+
+#ifdef CONFIG_STATE_NOTIFIER
+static bool __read_mostly disable_while_suspended = false;
+module_param(disable_while_suspended, bool, 0644);
+#endif
 
 static u64 last_input_time;
 #define MIN_INPUT_INTERVAL (150 * USEC_PER_MSEC)
@@ -236,6 +245,11 @@ static int boost_migration_notify(struct notifier_block *nb,
 	struct cpu_sync *s = &per_cpu(sync_info, dest_cpu);
 	struct cpufreq_policy src_policy;
 
+#ifdef CONFIG_STATE_NOTIFIER
+	if (unlikely(state_suspended && disable_while_suspended))
+		return NOTIFY_OK;
+#endif
+
 	if (!boost_ms)
 		return NOTIFY_OK;
 
@@ -304,7 +318,12 @@ static void cpuboost_input_event(struct input_handle *handle,
 {
 	u64 now;
 
-	if (!input_boost_freq)
+#ifdef CONFIG_STATE_NOTIFIER
+	if (unlikely(state_suspended && disable_while_suspended))
+		return;
+#endif
+
+	if (unlikely(!input_boost_freq))
 		return;
 
 	now = ktime_to_us(ktime_get());
