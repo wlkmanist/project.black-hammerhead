@@ -3641,7 +3641,7 @@ CONFIG_QMI_ENCDEC=y
 #
 # wlkmanist mods
 #
-CONFIG_LOCALVERSION="-project.black-1.0.17.1"
+CONFIG_LOCALVERSION="-project.black-1.0.17.2-beta"
 # CONFIG_MSM_DCVS is not set
 # CONFIG_BLU_PLUG=y
 # CONFIG_INTELLI_PLUG=y
