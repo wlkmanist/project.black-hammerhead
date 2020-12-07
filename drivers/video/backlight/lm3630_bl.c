@@ -129,6 +129,9 @@ static struct debug_reg lm3630_debug_regs[] = {
 	LM3630_DEBUG_REG(REVISION),
 };
 
+static bool __read_mostly lm3630_exp_control_enable = false;
+module_param(lm3630_exp_control_enable, bool, 0644);
+
 static void lm3630_hw_reset(struct lm3630_device *dev)
 {
 	if (gpio_is_valid(dev->en_gpio)) {
@@ -214,6 +217,19 @@ static void lm3630_set_main_current_level(struct i2c_client *client, int level)
 	mutex_lock(&backlight_mtx);
 	dev->bl_dev->props.brightness = level;
 	if (level != 0) {
+		/*
+		 *	Remap input level to min_brightness..max_brightness and use
+		 *	simple exponential brightness level control. Because of square
+		 *	func below, it is better to cut low values(around <=18) and
+		 *	remap brightness level value to save full byte input resolution.
+		 */
+		if (lm3630_exp_control_enable) {
+			level = (level - 1) * 933 / 1000 + 18;		/* remap to 18..255 */
+			level = level * level / 255;				/* exp func */
+		}
+		level = (level - 1) * (dev->max_brightness - dev->min_brightness)
+						/ 254 + dev->min_brightness;	/* final remap */
+
 		if (level < dev->min_brightness)
 			level = dev->min_brightness;
 		else if (level > dev->max_brightness)
