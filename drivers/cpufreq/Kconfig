@@ -279,7 +279,7 @@ config CPU_FREQ_GOV_BLU_ACTIVE
 
 	  If in doubt, say N.
 
-config CPU_BOOST
+config CPUBOOST
 	tristate "Event base short term CPU freq boost"
 	depends on CPU_FREQ
 	help
