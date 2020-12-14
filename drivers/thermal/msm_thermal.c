@@ -1,5 +1,5 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
- *
+/* Copyright (c) 2012-2013, 2020, The Linux Foundation. All rights reserved.
+ * 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -9,6 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
+ * mod by wlkmanist
  */
 
 #include <linux/kernel.h>
@@ -23,42 +24,55 @@
 #include <linux/msm_thermal.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
+#include <mach/cpufreq.h>
+#include <linux/reboot.h>
+#include <linux/syscalls.h>
 
-unsigned int temp_threshold = 65;
-module_param(temp_threshold, int, 0755);
+#define MSM_THERMAL_TEMP_THRESHOLD_CRIT 115
+#define THERMAL_SAFE_DIFF 5
+
+int enabled = 1;
+int temp_threshold = 70;
+module_param(temp_threshold, int, 0644);
 
 static struct thermal_info {
 	uint32_t cpuinfo_max_freq;
 	uint32_t limited_max_freq;
-	unsigned int safe_diff;
+	const unsigned int safe_diff;
 	bool throttling;
 	bool pending_change;
 } info = {
 	.cpuinfo_max_freq = LONG_MAX,
 	.limited_max_freq = LONG_MAX,
-	.safe_diff = 5,
+	.safe_diff = THERMAL_SAFE_DIFF,
 	.throttling = false,
 	.pending_change = false,
 };
 
-enum thermal_freqs {
-	FREQ_HELL		= 729600,
-	FREQ_VERY_HOT		= 1036800,
-	FREQ_HOT		= 1497600,
-	FREQ_WARM		= 1728000,
-};
-
-enum threshold_levels {
-	LEVEL_HELL		= 1 << 4,
-	LEVEL_VERY_HOT		= 1 << 3,
-	LEVEL_HOT		= 1 << 2,
+struct thermal_levels
+{
+	uint32_t freq;
+	long temp;
+}
+	thermal_level[] = 
+{
+	{ 2726400, -THERMAL_SAFE_DIFF },
+	{ 2496000, 0 },
+	{ 2265600, 1 },
+	{ 1958400, 2 },
+	{ 1728000, 3 },
+	{ 1497600, 4 },
+	{ 1267200, 5 },
+	{ 1036800, 6 },
+	{ 729600,  7 },
+	{ 422400,  8 }
 };
 
 static struct msm_thermal_data msm_thermal_info;
 
 static struct delayed_work check_temp_work;
 
-unsigned short get_threshold(void)
+int get_threshold(void)
 {
 	return temp_threshold;
 }
@@ -109,28 +123,49 @@ static void check_temp(struct work_struct *work)
 	struct tsens_device tsens_dev;
 	uint32_t freq = 0;
 	long temp = 0;
+	short i;
 
 	tsens_dev.sensor_num = msm_thermal_info.sensor_id;
 	tsens_get_temp(&tsens_dev, &temp);
 
+	if (temp >= MSM_THERMAL_TEMP_THRESHOLD_CRIT)
+	{
+		pr_info("%s: power down by soc temp limit theshold (%d)\n",
+			__func__, MSM_THERMAL_TEMP_THRESHOLD_CRIT);
+		sys_sync();
+		kernel_power_off();
+	}
+
+	if (!enabled) 
+	{
+		/* if module disabled we need reshedule to check at least once per second 
+		 * MSM_THERMAL_TEMP_THRESHOLD_CRIT to avoid permanent hardware damage
+		 */
+		schedule_delayed_work_on(0, &check_temp_work, msecs_to_jiffies(1000));
+		return;
+	}
+
+	temp -= temp_threshold;
+
 	if (info.throttling)
 	{
-		if (temp < (temp_threshold - info.safe_diff))
+		if (temp <  -info.safe_diff)
 		{
 			limit_cpu_freqs(info.cpuinfo_max_freq);
 			info.throttling = false;
 			goto reschedule;
 		}
+		freq = thermal_level[1].freq; /* if throttling active min throttle level is 1, else 0 */
 	}
 
-	if (temp >= temp_threshold + LEVEL_HELL)
-		freq = FREQ_HELL;
-	else if (temp >= temp_threshold + LEVEL_VERY_HOT)
-		freq = FREQ_VERY_HOT;
-	else if (temp >= temp_threshold + LEVEL_HOT)
-		freq = FREQ_HOT;
-	else if (temp > temp_threshold)
-		freq = FREQ_WARM;
+	for (i = 9; i >= info.throttling; i--)
+	{
+		if (temp >= thermal_level[i].temp)
+		{
+			freq = thermal_level[i].freq;
+			break;
+		}
+	}
 
 	if (freq)
 	{
@@ -141,8 +176,38 @@ static void check_temp(struct work_struct *work)
 	}
 
 reschedule:
-	schedule_delayed_work_on(0, &check_temp_work, msecs_to_jiffies(250));
+	if (temp >= -3 * info.safe_diff)
+		schedule_delayed_work_on(0, &check_temp_work, msecs_to_jiffies(40));
+	else
+		schedule_delayed_work_on(0, &check_temp_work, msecs_to_jiffies(250));
 }
+
+int __ref set_enabled(const char *val, const struct kernel_param *kp)
+{
+	if (*val == '0' || *val == 'n' || *val == 'N')
+	{
+		enabled = 0; /* disable */
+		limit_cpu_freqs(info.cpuinfo_max_freq);
+	}
+	else
+	{
+		if (!enabled)
+		{
+			enabled = 1; /* reschedule */
+		} 
+	}
+
+	return 0;
+}
+
+struct kernel_param_ops module_ops = {
+	.set = set_enabled,
+	.get = param_get_bool,
+};
+
+module_param_cb(enabled, &module_ops, &enabled, 0644);
+MODULE_PARM_DESC(enabled, "enforce thermal limit on cpu");
+
 
 static int __devinit msm_thermal_dev_probe(struct platform_device *pdev)
 {
