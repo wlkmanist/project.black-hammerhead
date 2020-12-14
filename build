@@ -1,0 +1,59 @@
+#!/bin/bash
+
+# Build script for project.black kernel
+# by wlkmanist
+
+KERNEL_DIR=$PWD
+IMAGE_DIR=$KERNEL_DIR/arch/arm/boot
+RDY_SCRIPT=$KERNEL_DIR/../Dev/copy_boot.sh
+BUILD_START=$(date +"%s")
+VERSION=$2
+PARAM=$1
+
+export ARCH=arm
+export SUBARCH=arm
+export CROSS_COMPILE=/mnt/Data/tools/UBERTC-4.9.4/bin/arm-eabi-
+
+case "$PARAM" in
+  "")
+  ;;
+  "def")
+    make black_wlk_defconfig
+  ;;
+  "dbg")
+    make black_wlk_dbg_defconfig
+  ;;
+  "cln")
+    make clean
+  ;;
+  "rdy")
+    $RDY_SCRIPT "dev" $IMAGE_DIR
+    exit 0	
+  ;;
+  "--help" | * )
+    echo "Usage: ./build [param (optional)]"
+    echo ""
+    echo "Params:"
+    echo "  [none]: build only"
+    echo "  def   : build with main defconfig"
+    echo "  dbg   : build with debug defconfig"
+    echo "  cln   : make clean and build"
+    echo "  rdy   : build only then export"
+    echo "  --help: display this"
+
+    exit 0
+  ;;
+esac
+[ $? -eq 0 ]  || exit -1
+
+make -j4
+# $(nproc --all)
+[ $? -eq 0 ]  || exit -1
+
+BUILD_END=$(date +"%s")
+TIME_DIFF=$(($BUILD_END - $BUILD_START))
+
+echo ""
+echo -e "Build time: $((TIME_DIFF / 60))m $((TIME_DIFF % 60))s."
+echo ""
+
