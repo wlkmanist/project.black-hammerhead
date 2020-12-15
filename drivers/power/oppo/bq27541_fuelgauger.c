@@ -45,6 +45,11 @@
 #include <linux/random.h>
 #include <linux/rtc.h>
 
+#ifdef CONFIG_MACH_OPPO
+static bool __read_mostly battery_shutdown = true;
+module_param(battery_shutdown, bool, 0644);
+#endif
+
 extern char *BQ27541_HMACSHA1_authenticate(char *Message, char *Key,
 		char *result);
 extern int load_soc(void);
@@ -496,6 +501,8 @@ static int bq27541_battery_soc(struct bq27541_device_info *di, int time)
 	}
 
 	soc = bq27541_soc_calibrate(di,soc);
+	if (!soc)						// if battery shutdown disabled from
+		soc = !battery_shutdown;	// userspace set capacity to 1%
 	return soc;
 
 read_soc_err:
