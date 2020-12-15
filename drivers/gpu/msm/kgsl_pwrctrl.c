@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014,2016,2020, The Linux Foundation.All rights reserved.
+/* Copyright (c) 2010-2014,2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -434,17 +434,19 @@ static int kgsl_pwrctrl_gpuclk_show(struct device *dev,
 				    struct device_attribute *attr,
 				    char *buf)
 {
-	unsigned int pwrlevel;
+	unsigned long freq;
 	struct kgsl_device *device = kgsl_device_from_dev(dev);
 	struct kgsl_pwrctrl *pwr;
-	if (!device)
+	if (device == NULL)
 		return 0;
-	/* GPU frequency in slumber mode equals the last power level's one */
-	pwrlevel = device->state != KGSL_STATE_SLUMBER
-			? pwr->active_pwrlevel
-			: pwr->num_pwrlevels - 1;
+	pwr = &device->pwrctrl;
 
-	return scnprintf(buf, 12, "%u\n", pwr->pwrlevels[pwrlevel].gpu_freq);
+	if (device->state == KGSL_STATE_SLUMBER)
+		freq = pwr->pwrlevels[pwr->num_pwrlevels - 1].gpu_freq;
+	else
+		freq = kgsl_pwrctrl_active_freq(pwr);
+
+	return snprintf(buf, PAGE_SIZE, "%lu\n", freq);
 }
 
 static int kgsl_pwrctrl_gpufreq_mhz_show(struct device *dev,
