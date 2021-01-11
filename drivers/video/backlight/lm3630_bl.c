@@ -507,6 +507,44 @@ static DEVICE_ATTR(lm3630_exp_control, 0644,
 		   lcd_backlight_show_exp_control,
 		   lcd_backlight_store_exp_control);
 
+static ssize_t lcd_backlight_show_max_current(struct device *dev,
+					    struct device_attribute *attr,
+					    char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct lm3630_device *lm3630 = i2c_get_clientdata(client);
+
+	if (IS_ERR_OR_NULL(lm3630))
+		return scnprintf(buf, 15, "<unsupported>\n");
+
+	return scnprintf(buf, 4, "%d\n", lm3630->max_current);
+}
+
+static ssize_t lcd_backlight_store_max_current(struct device *dev,
+					     struct device_attribute *attr,
+					     const char *buf, size_t count)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct lm3630_device *lm3630 = i2c_get_clientdata(client);
+	int ret, val;
+
+	if (IS_ERR_OR_NULL(lm3630))
+		return -ENODEV;
+
+	ret = kstrtoint(buf, 10, &val);
+	if (ret || val < 0 || val > 36)
+		return -EINVAL;
+
+	lm3630->max_current = val;
+	lm3630_set_max_current_reg(lm3630, lm3630->max_current);
+
+	return count;
+}
+
+static DEVICE_ATTR(lm3630_max_current, 0644,
+		   lcd_backlight_show_max_current,
+		   lcd_backlight_store_max_current);
+
 static int lm3630_create_debugfs_entries(struct lm3630_device *chip)
 {
 	int i;
@@ -802,6 +840,7 @@ static int lm3630_probe(struct i2c_client *client,
 	ret |= device_create_file(&client->dev, &dev_attr_lm3630_min_level);
 	ret |= device_create_file(&client->dev, &dev_attr_lm3630_max_level);
 	ret |= device_create_file(&client->dev, &dev_attr_lm3630_exp_control);
+	ret |= device_create_file(&client->dev, &dev_attr_lm3630_max_current);
 	if (ret) {
 		pr_err("%s: failed to create sysfs level\n", __func__);
 		goto err_create_sysfs_level;
@@ -819,6 +858,7 @@ static int lm3630_probe(struct i2c_client *client,
 	return 0;
 
 err_create_debugfs:
+	device_remove_file(&client->dev, &dev_attr_lm3630_max_current);
 	device_remove_file(&client->dev, &dev_attr_lm3630_exp_control);
 	device_remove_file(&client->dev, &dev_attr_lm3630_max_level);
 	device_remove_file(&client->dev, &dev_attr_lm3630_min_level);
@@ -843,6 +883,7 @@ static int lm3630_remove(struct i2c_client *client)
 	lm3630_dev = NULL;
 	if (dev->dent)
 		debugfs_remove_recursive(dev->dent);
+	device_remove_file(&client->dev, &dev_attr_lm3630_max_current);
 	device_remove_file(&client->dev, &dev_attr_lm3630_exp_control);
 	device_remove_file(&client->dev, &dev_attr_lm3630_max_level);
 	device_remove_file(&client->dev, &dev_attr_lm3630_min_level);
