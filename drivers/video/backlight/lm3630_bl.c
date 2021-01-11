@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 LGE Inc. All rights reserved.
+ * Copyright (c) 2013 LGE Inc., 2020-2021 wlkmanist. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -95,6 +95,7 @@ struct lm3630_device {
 	int pwm_enable;
 	int blmap_size;
 	char *blmap;
+	bool exp_control;
 };
 
 static const struct i2c_device_id lm3630_bl_id[] = {
@@ -128,9 +129,6 @@ static struct debug_reg lm3630_debug_regs[] = {
 	LM3630_DEBUG_REG(PWM_OUT),
 	LM3630_DEBUG_REG(REVISION),
 };
-
-static bool __read_mostly lm3630_exp_control_enable = false;
-module_param(lm3630_exp_control_enable, bool, 0644);
 
 static void lm3630_hw_reset(struct lm3630_device *dev)
 {
@@ -222,8 +220,9 @@ static void lm3630_set_main_current_level(struct i2c_client *client, int level)
 		 *	simple exponential brightness level control. Because of square
 		 *	func below, it is better to cut low values(around <=18) and
 		 *	remap brightness level value to save full byte input resolution.
+		 *  (I know, it is not exponential but sounds cool).
 		 */
-		if (lm3630_exp_control_enable) {
+		if (dev->exp_control) {
 			level = (level - 1) * 933 / 1000 + 18;		/* remap to 18..255 */
 			level = level * level / 255;				/* exp func */
 		}
@@ -470,6 +469,44 @@ static DEVICE_ATTR(lm3630_max_level, 0644,
 		   lcd_backlight_show_max_level,
 		   lcd_backlight_store_max_level);
 
+static ssize_t lcd_backlight_show_exp_control(struct device *dev,
+					    struct device_attribute *attr,
+					    char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct lm3630_device *lm3630 = i2c_get_clientdata(client);
+
+	if (IS_ERR_OR_NULL(lm3630))
+		return scnprintf(buf, 15, "<unsupported>\n");
+
+	return scnprintf(buf, 3, "%d\n", lm3630->exp_control);
+}
+
+static ssize_t lcd_backlight_store_exp_control(struct device *dev,
+					     struct device_attribute *attr,
+					     const char *buf, size_t count)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct lm3630_device *lm3630 = i2c_get_clientdata(client);
+	int ret, val;
+
+	if (IS_ERR_OR_NULL(lm3630))
+		return -ENODEV;
+
+	ret = kstrtoint(buf, 10, &val);
+	if (ret || val < 0 || val > 1)
+		return -EINVAL;
+
+	lm3630->exp_control = !!val;
+	lm3630_set_main_current_level(client, lm3630->bl_dev->props.brightness);
+
+	return count;
+}
+
+static DEVICE_ATTR(lm3630_exp_control, 0644,
+		   lcd_backlight_show_exp_control,
+		   lcd_backlight_store_exp_control);
+
 static int lm3630_create_debugfs_entries(struct lm3630_device *chip)
 {
 	int i;
@@ -545,7 +582,7 @@ static void lm3630_set_init_values(struct lm3630_device *dev)
 static int lm3630_parse_dt(struct device_node *node,
 			struct lm3630_device *dev)
 {
-	int i = 0, rc = 0;
+	int i = 0, rc = 0, val = 0;
 	u32 *array = NULL;
 
 	dev->en_gpio = of_get_named_gpio(node, "lm3630,lcd_bl_en", 0);
@@ -582,6 +619,14 @@ static int lm3630_parse_dt(struct device_node *node,
 		pr_err("%s: failed to get lm3630,max_current\n", __func__);
 		goto error;
 	}
+
+	rc = of_property_read_u32(node, "lm3630,exp_control",
+				&val);
+	if (rc) {
+		pr_err("%s: failed to get lm3630,exp_control\n", __func__);
+		goto error;
+	}
+	dev->exp_control = !!val;
 
 	rc = of_property_read_u32(node, "lm3630,min_brightness",
 				&dev->min_brightness);
@@ -706,6 +751,7 @@ static int lm3630_probe(struct i2c_client *client,
 		dev->bank_sel = pdata->bank_sel;
 		dev->linear_map = pdata->linear_map;
 		dev->max_current = pdata->max_current;
+		dev->exp_control = false;
 		dev->min_brightness = pdata->min_brightness;
 		dev->default_brightness = pdata->default_brightness;
 		dev->max_brightness = pdata->max_brightness;
@@ -755,6 +801,7 @@ static int lm3630_probe(struct i2c_client *client,
 	ret  = device_create_file(&client->dev, &dev_attr_lm3630_level);
 	ret |= device_create_file(&client->dev, &dev_attr_lm3630_min_level);
 	ret |= device_create_file(&client->dev, &dev_attr_lm3630_max_level);
+	ret |= device_create_file(&client->dev, &dev_attr_lm3630_exp_control);
 	if (ret) {
 		pr_err("%s: failed to create sysfs level\n", __func__);
 		goto err_create_sysfs_level;
@@ -772,6 +819,7 @@ static int lm3630_probe(struct i2c_client *client,
 	return 0;
 
 err_create_debugfs:
+	device_remove_file(&client->dev, &dev_attr_lm3630_exp_control);
 	device_remove_file(&client->dev, &dev_attr_lm3630_max_level);
 	device_remove_file(&client->dev, &dev_attr_lm3630_min_level);
 	device_remove_file(&client->dev, &dev_attr_lm3630_level);
@@ -795,6 +843,7 @@ static int lm3630_remove(struct i2c_client *client)
 	lm3630_dev = NULL;
 	if (dev->dent)
 		debugfs_remove_recursive(dev->dent);
+	device_remove_file(&client->dev, &dev_attr_lm3630_exp_control);
 	device_remove_file(&client->dev, &dev_attr_lm3630_max_level);
 	device_remove_file(&client->dev, &dev_attr_lm3630_min_level);
 	device_remove_file(&client->dev, &dev_attr_lm3630_level);
