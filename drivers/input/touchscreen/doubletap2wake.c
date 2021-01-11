@@ -64,7 +64,7 @@ MODULE_LICENSE("GPLv2");
 
 #define DT2W_PWRKEY_DUR		60
 #define DT2W_FEATHER		150
-#define DT2W_TIME           	50
+#define DT2W_TIME           	HZ/2
 
 /* Wake Gestures */
 #define WAKE_GESTURE		0x0b
