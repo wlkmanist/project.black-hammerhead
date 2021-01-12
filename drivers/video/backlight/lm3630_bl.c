@@ -532,7 +532,7 @@ static ssize_t lcd_backlight_store_max_current(struct device *dev,
 		return -ENODEV;
 
 	ret = kstrtoint(buf, 10, &val);
-	if (ret || val < 0 || val > 36)
+	if (ret || val < 0x00 || val > 0x1f)
 		return -EINVAL;
 
 	lm3630->max_current = val;
