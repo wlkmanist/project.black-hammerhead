@@ -52,18 +52,12 @@ module_param(temp_threshold, 		long, 0644);
 module_param(temp_threshold_crit, 	long, 0444);
 module_param(polling_freq_preset, 	uint, 0644);
 
-const unsigned int polling_val[] = {
-	/*   4,   5,   8,  10, 20, 25, 40, : cycles per second */
+static const unsigned int polling_val[] = {
+	/*   4,   5,   8,  10, 20, 25, 40, : HZ */
 	0, 250, 200, 125, 100, 50, 40, 25,
 };
 
-static struct thermal_info {
-	uint32_t cpuinfo_max_freq;
-	uint32_t limited_max_freq;
-	long safe_diff;
-	bool throttling;
-	bool pending_change;
-} info = {
+struct thermal_info cpu_thermal_info = {
 	.cpuinfo_max_freq = LONG_MAX,
 	.limited_max_freq = LONG_MAX,
 	.safe_diff = MSM_THERMAL_SAFE_DIFF,
@@ -110,11 +104,11 @@ static int msm_thermal_cpufreq_callback(struct notifier_block *nfb,
 {
 	struct cpufreq_policy *policy = data;
 
-	if (event != CPUFREQ_ADJUST && !info.pending_change)
+	if (event != CPUFREQ_ADJUST && !cpu_thermal_info.pending_change)
 		return 0;
 
 	cpufreq_verify_within_limits(policy, policy->cpuinfo.min_freq,
-					info.limited_max_freq);
+					cpu_thermal_info.limited_max_freq);
 
 	return 0;
 }
@@ -127,23 +121,23 @@ static void limit_cpu_freqs(uint32_t max_freq)
 {
 	unsigned int cpu;
 
-	if (info.limited_max_freq == max_freq)
+	if (cpu_thermal_info.limited_max_freq == max_freq)
 		return;
 
-	info.limited_max_freq = max_freq;
+	cpu_thermal_info.limited_max_freq = max_freq;
 
-	info.pending_change = true;
+	cpu_thermal_info.pending_change = true;
 
-	if (info.limited_max_freq != info.cpuinfo_max_freq)
+	if (cpu_thermal_info.limited_max_freq != cpu_thermal_info.cpuinfo_max_freq)
 		pr_debug("%s: CPU freq limit (%d)\n",
-					KBUILD_MODNAME, info.limited_max_freq);
+					KBUILD_MODNAME, cpu_thermal_info.limited_max_freq);
 	else pr_debug("%s: Restore CPU freq", KBUILD_MODNAME);
 
 	get_online_cpus();
 	for_each_online_cpu(cpu) cpufreq_update_policy(cpu);
 	put_online_cpus();
 
-	info.pending_change = false;
+	cpu_thermal_info.pending_change = false;
 }
 
 static void check_temp(struct work_struct *work)
@@ -175,17 +169,17 @@ static void check_temp(struct work_struct *work)
 
 	temp -= temp_threshold;
 
-	if (temp < -info.safe_diff)
+	if (temp < -cpu_thermal_info.safe_diff)
 	{
-		if (unlikely(info.throttling))
+		if (unlikely(cpu_thermal_info.throttling))
 		{
-			limit_cpu_freqs(info.cpuinfo_max_freq);
-			info.throttling = false;
+			limit_cpu_freqs(cpu_thermal_info.cpuinfo_max_freq);
+			cpu_thermal_info.throttling = false;
 		}
 		goto reschedule;
 	}
 
-	for (i = 9; i >= info.throttling; i--)
+	for (i = 9; i >= cpu_thermal_info.throttling; i--)
 	{
 		if (temp >= thermal_level[i].temp)
 		{
@@ -198,12 +192,12 @@ static void check_temp(struct work_struct *work)
 	{
 		limit_cpu_freqs(freq);
 
-		if (!info.throttling)
-			info.throttling = true;
+		if (!cpu_thermal_info.throttling)
+			cpu_thermal_info.throttling = true;
 	}
 
 reschedule:
-	if (temp >= -3 * info.safe_diff)
+	if (temp >= -3 * cpu_thermal_info.safe_diff)
 		schedule_delayed_work_on(0, &check_temp_work,
 						get_polling_interval_jiffies());
 	else

@@ -36,4 +36,12 @@ struct msm_thermal_data {
 	int32_t psm_temp_hyst_degC;
 };
 
+struct thermal_info {
+	uint32_t cpuinfo_max_freq;
+	uint32_t limited_max_freq;
+	long safe_diff;
+	bool throttling;
+	bool pending_change;
+};
+
 #endif /*__MSM_THERMAL_H*/
