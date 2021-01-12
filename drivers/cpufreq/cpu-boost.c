@@ -28,6 +28,10 @@
 #include <linux/state_notifier.h>
 #endif
 
+#ifdef CONFIG_THERMAL_MONITOR
+#include <linux/msm_thermal.h>
+#endif
+
 static DEFINE_PER_CPU(struct cpu_sync, sync_info);
 
 /* Workqueue used to run boosting algorithms on */
@@ -88,6 +92,10 @@ module_param(input_boost_ms, uint, 0644);
 #ifdef CONFIG_STATE_NOTIFIER
 static bool __read_mostly disable_while_suspended = false;
 module_param(disable_while_suspended, bool, 0644);
+#endif
+
+#ifdef CONFIG_THERMAL_MONITOR
+extern struct thermal_info cpu_thermal_info;
 #endif
 
 static u64 last_input_time;
@@ -199,6 +207,12 @@ static int boost_mig_sync_thread(void *data)
 		if (sync_threshold)
 			req_freq = min(req_freq, sync_threshold);
 
+#ifdef CONFIG_THERMAL_MONITOR
+		if (unlikely(cpu_thermal_info.throttling &&
+					req_freq > cpu_thermal_info.limited_max_freq))
+			req_freq = min(req_freq, cpu_thermal_info.limited_max_freq);
+#endif
+
 		if (unlikely(req_freq <= dest_policy.cpuinfo.min_freq))
 			continue;
 
@@ -304,6 +318,12 @@ static void do_input_boost(struct work_struct *work)
 			continue;
 
 		cancel_delayed_work_sync(&i_sync_info->input_boost_rem);
+#ifdef CONFIG_THERMAL_MONITOR
+		if (unlikely(cpu_thermal_info.throttling &&
+					input_boost_freq > cpu_thermal_info.limited_max_freq))
+			i_sync_info->input_boost_min = cpu_thermal_info.limited_max_freq;
+		else
+#endif
 		i_sync_info->input_boost_min = input_boost_freq;
 		cpufreq_update_policy(i);
 		queue_delayed_work_on(i_sync_info->cpu, cpu_boost_wq,
