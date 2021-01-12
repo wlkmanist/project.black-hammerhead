@@ -347,6 +347,50 @@ static int bl_get_intensity(struct backlight_device *bd)
 		     lm3630_dev->max_brightness);
 }
 
+static void lm3630_set_init_values(struct lm3630_device *dev)
+{
+	if (dev->bank_sel == LED_BANK_A) {
+		dev->ctrl_reg = (DEFAULT_CTRL_REG & ~SLEEP_CMD_MASK)
+			| LED_A_EN_MASK | LED2_ON_A_MASK;
+
+		if (dev->linear_map)
+			dev->ctrl_reg = dev->ctrl_reg | LINEAR_A_MASK;
+
+		dev->cfg_reg = (DEFAULT_CFG_REG & ~ FEEDBACK_B_MASK)
+			| FEEDBACK_A_MASK;
+
+		if (dev->pwm_enable)
+			dev->cfg_reg = dev->cfg_reg | PWM_EN_A_MASK;
+	} else if (dev->bank_sel == LED_BANK_B) {
+		dev->ctrl_reg = (DEFAULT_CTRL_REG & ~SLEEP_CMD_MASK)
+			| LINEAR_B_MASK | LED_B_EN_MASK;
+
+		if (dev->linear_map)
+			dev->ctrl_reg = dev->ctrl_reg | LINEAR_B_MASK;
+
+		dev->cfg_reg = (DEFAULT_CFG_REG & ~FEEDBACK_A_MASK)
+				| FEEDBACK_B_MASK;
+
+		if (dev->pwm_enable)
+			dev->cfg_reg = dev->cfg_reg | PWM_EN_B_MASK;
+	} else {
+		dev->ctrl_reg = (DEFAULT_CTRL_REG & ~SLEEP_CMD_MASK)
+			| LINEAR_A_MASK | LINEAR_B_MASK
+			| LED_A_EN_MASK | LED_B_EN_MASK;
+
+		if (dev->linear_map)
+			dev->ctrl_reg = dev->ctrl_reg
+				| LINEAR_A_MASK | LINEAR_B_MASK;
+
+		dev->cfg_reg = DEFAULT_CFG_REG
+			| FEEDBACK_A_MASK | FEEDBACK_B_MASK;
+
+		if (dev->pwm_enable)
+			dev->cfg_reg = dev->cfg_reg
+				| PWM_EN_A_MASK | PWM_EN_B_MASK;
+	}
+}
+
 static ssize_t lcd_backlight_show_level(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -545,6 +589,49 @@ static DEVICE_ATTR(lm3630_max_current, 0644,
 		   lcd_backlight_show_max_current,
 		   lcd_backlight_store_max_current);
 
+static ssize_t lcd_backlight_show_pwm(struct device *dev,
+					    struct device_attribute *attr,
+					    char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct lm3630_device *lm3630 = i2c_get_clientdata(client);
+
+	if (IS_ERR_OR_NULL(lm3630))
+		return scnprintf(buf, 15, "<unsupported>\n");
+
+	return scnprintf(buf, 3, "%d\n", lm3630->pwm_enable);
+}
+
+static ssize_t lcd_backlight_store_pwm(struct device *dev,
+					     struct device_attribute *attr,
+					     const char *buf, size_t count)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct lm3630_device *lm3630 = i2c_get_clientdata(client);
+	int ret, val;
+
+	if (IS_ERR_OR_NULL(lm3630))
+		return -ENODEV;
+
+	ret = kstrtoint(buf, 10, &val);
+	if (ret || val < 0 || val > 1)
+		return -EINVAL;
+
+	lm3630->pwm_enable = !!val;
+
+	val = lm3630->bl_dev->props.brightness;	/* save brightness level */
+
+	lm3630_backlight_off(lm3630);			/* we need props.brightness == 0 */
+	lm3630_set_init_values(lm3630);
+	lm3630_backlight_on(lm3630, val);	/* to call hw_init and restore level */
+
+	return count;
+}
+
+static DEVICE_ATTR(lm3630_pwm_enable, 0644,
+		   lcd_backlight_show_pwm,
+		   lcd_backlight_store_pwm);
+
 static int lm3630_create_debugfs_entries(struct lm3630_device *chip)
 {
 	int i;
@@ -571,50 +658,6 @@ static int lm3630_create_debugfs_entries(struct lm3630_device *chip)
 	}
 
 	return 0;
-}
-
-static void lm3630_set_init_values(struct lm3630_device *dev)
-{
-	if (dev->bank_sel == LED_BANK_A) {
-		dev->ctrl_reg = (DEFAULT_CTRL_REG & ~SLEEP_CMD_MASK)
-			| LED_A_EN_MASK | LED2_ON_A_MASK;
-
-		if (dev->linear_map)
-			dev->ctrl_reg = dev->ctrl_reg | LINEAR_A_MASK;
-
-		dev->cfg_reg = (DEFAULT_CFG_REG & ~ FEEDBACK_B_MASK)
-			| FEEDBACK_A_MASK;
-
-		if (dev->pwm_enable)
-			dev->cfg_reg = dev->cfg_reg | PWM_EN_A_MASK;
-	} else if (dev->bank_sel == LED_BANK_B) {
-		dev->ctrl_reg = (DEFAULT_CTRL_REG & ~SLEEP_CMD_MASK)
-			| LINEAR_B_MASK | LED_B_EN_MASK;
-
-		if (dev->linear_map)
-			dev->ctrl_reg = dev->ctrl_reg | LINEAR_B_MASK;
-
-		dev->cfg_reg = (DEFAULT_CFG_REG & ~FEEDBACK_A_MASK)
-				| FEEDBACK_B_MASK;
-
-		if (dev->pwm_enable)
-			dev->cfg_reg = dev->cfg_reg | PWM_EN_B_MASK;
-	} else {
-		dev->ctrl_reg = (DEFAULT_CTRL_REG & ~SLEEP_CMD_MASK)
-			| LINEAR_A_MASK | LINEAR_B_MASK
-			| LED_A_EN_MASK | LED_B_EN_MASK;
-
-		if (dev->linear_map)
-			dev->ctrl_reg = dev->ctrl_reg
-				| LINEAR_A_MASK | LINEAR_B_MASK;
-
-		dev->cfg_reg = DEFAULT_CFG_REG
-			| FEEDBACK_A_MASK | FEEDBACK_B_MASK;
-
-		if (dev->pwm_enable)
-			dev->cfg_reg = dev->cfg_reg
-				| PWM_EN_A_MASK | PWM_EN_B_MASK;
-	}
 }
 
 static int lm3630_parse_dt(struct device_node *node,
@@ -841,6 +884,7 @@ static int lm3630_probe(struct i2c_client *client,
 	ret |= device_create_file(&client->dev, &dev_attr_lm3630_max_level);
 	ret |= device_create_file(&client->dev, &dev_attr_lm3630_exp_control);
 	ret |= device_create_file(&client->dev, &dev_attr_lm3630_max_current);
+	ret |= device_create_file(&client->dev, &dev_attr_lm3630_pwm_enable);
 	if (ret) {
 		pr_err("%s: failed to create sysfs level\n", __func__);
 		goto err_create_sysfs_level;
@@ -858,6 +902,7 @@ static int lm3630_probe(struct i2c_client *client,
 	return 0;
 
 err_create_debugfs:
+	device_remove_file(&client->dev, &dev_attr_lm3630_pwm_enable);
 	device_remove_file(&client->dev, &dev_attr_lm3630_max_current);
 	device_remove_file(&client->dev, &dev_attr_lm3630_exp_control);
 	device_remove_file(&client->dev, &dev_attr_lm3630_max_level);
@@ -883,6 +928,7 @@ static int lm3630_remove(struct i2c_client *client)
 	lm3630_dev = NULL;
 	if (dev->dent)
 		debugfs_remove_recursive(dev->dent);
+	device_remove_file(&client->dev, &dev_attr_lm3630_pwm_enable);
 	device_remove_file(&client->dev, &dev_attr_lm3630_max_current);
 	device_remove_file(&client->dev, &dev_attr_lm3630_exp_control);
 	device_remove_file(&client->dev, &dev_attr_lm3630_max_level);
