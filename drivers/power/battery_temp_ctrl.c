@@ -225,8 +225,7 @@ static int batt_tm_notification_start(struct batt_tm_data *batt_tm)
 #ifdef CONFIG_MAX17048_TWEAKS
 	if (get_bat_temp_is_spoofing())
 	batt_tm->adc_param.state_request =
-				ADC_TM_LOW_THR_ENABLE;
-						/* Enable only low voltage threshold */
+				ADC_TM_HIGH_LOW_THR_DISABLE;
 	else
 #endif
 	batt_tm->adc_param.state_request =
