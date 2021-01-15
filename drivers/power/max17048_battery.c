@@ -40,6 +40,13 @@
 #ifdef CONFIG_MAX17048_TWEAKS
 #include <linux/max17048_tweaks.h>
 
+#ifdef CONFIG_STATE_NOTIFIER
+#include <linux/state_notifier.h>
+
+static int __read_mostly suspend_timed_alerts_ms = 0;
+module_param(suspend_timed_alerts_ms, int, 0644);
+#endif
+
 static bool __read_mostly battery_shutdown = true;
 module_param(battery_shutdown, bool, 0644);
 static bool __read_mostly force_default_temp = false;
@@ -98,6 +105,11 @@ struct max17048_chip {
 	int max_mvolt;
 	int full_soc;
 	int fcc_mah;
+#else
+#ifdef CONFIG_STATE_NOTIFIER
+	struct delayed_work suspend_timer_work;
+	bool allow_wakelock;
+#endif
 #endif
 	int min_mvolt;
 	int empty_soc;
@@ -426,6 +438,26 @@ static void max17048_work(struct work_struct *work)
 	int ret = 0;
 	int rechg_now;
 
+#if defined (CONFIG_MAX17048_TWEAKS) && defined (CONFIG_STATE_NOTIFIER)
+	if (unlikely(state_suspended)) {
+		if (chip->allow_wakelock) {
+			if (suspend_timed_alerts_ms > 0) {
+				chip->allow_wakelock = false;
+				schedule_delayed_work_on(0, &chip->suspend_timer_work,
+							(suspend_timed_alerts_ms < 1000) ?
+							msecs_to_jiffies(1000) :
+							msecs_to_jiffies(
+							(unsigned long)suspend_timed_alerts_ms));
+			}
+		} else {
+			pr_debug("%s : wakelock denied\n", __func__);
+
+			complete_all(&monitor_work_done);
+			return;
+		}
+	}
+#endif
+
 	wake_lock(&chip->alert_lock);
 
 	pr_debug("%s.\n", __func__);
@@ -462,7 +494,7 @@ static void max17048_work(struct work_struct *work)
 #endif
 				) {
 		max17048_check_low_vbatt(chip);
-		schedule_delayed_work(&chip->monitor_work,
+		schedule_delayed_work_on(0, &chip->monitor_work,
 				msecs_to_jiffies(chip->poll_interval_ms));
 	} else {
 		pr_info("%s: rsoc=0x%04X rvcell=0x%04X soc=%d"\
@@ -474,12 +506,22 @@ static void max17048_work(struct work_struct *work)
 	}
 }
 
+#if defined (CONFIG_MAX17048_TWEAKS) && defined (CONFIG_STATE_NOTIFIER)
+static void max17048_suspend_timer_work(struct work_struct *work)
+{
+	struct max17048_chip *chip =
+		container_of(work, struct max17048_chip, suspend_timer_work.work);
+
+	chip->allow_wakelock = true;
+}
+#endif
+
 static irqreturn_t max17048_interrupt_handler(int irq, void *data)
 {
 	struct max17048_chip *chip = data;
 
 	pr_debug("%s : interupt occured\n", __func__);
-	schedule_delayed_work(&chip->monitor_work, 0);
+	schedule_delayed_work_on(0, &chip->monitor_work, 0);
 
 	return IRQ_HANDLED;
 }
@@ -554,7 +596,7 @@ ssize_t max17048_store_status(struct device *dev,
 
 	if (strncmp(buf, "reset", 5) == 0) {
 		max17048_set_reset(chip);
-		schedule_delayed_work(&chip->monitor_work, 0);
+		schedule_delayed_work_on(0, &chip->monitor_work, 0);
 	} else {
 		return -EINVAL;
 	}
@@ -1016,7 +1058,7 @@ static int max17048_pm_notifier(struct notifier_block *notifier,
 		break;
 	case PM_POST_SUSPEND:
 		INIT_COMPLETION(monitor_work_done);
-		schedule_delayed_work(&chip->monitor_work,
+		schedule_delayed_work_on(0, &chip->monitor_work,
 					msecs_to_jiffies(200));
 		max17048_set_alsc_alert(chip, true);
 		break;
@@ -1094,6 +1136,11 @@ static int max17048_probe(struct i2c_client *client,
 	}
 
 	INIT_DELAYED_WORK(&chip->monitor_work, max17048_work);
+#if defined (CONFIG_MAX17048_TWEAKS) && defined (CONFIG_STATE_NOTIFIER)
+	INIT_DELAYED_WORK(&chip->suspend_timer_work, max17048_suspend_timer_work);
+	chip->allow_wakelock = true;
+#endif
+
 	wake_lock_init(&chip->alert_lock, WAKE_LOCK_SUSPEND,
 			"max17048_alert");
 
@@ -1155,7 +1202,7 @@ static int max17048_probe(struct i2c_client *client,
 		goto err_hw_init;
 	}
 
-	schedule_delayed_work(&chip->monitor_work, 0);
+	schedule_delayed_work_on(0, &chip->monitor_work, 0);
 	enable_irq(chip->alert_irq);
 
 	pr_info("%s: done\n", __func__);
