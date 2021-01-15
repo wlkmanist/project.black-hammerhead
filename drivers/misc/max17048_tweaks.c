@@ -22,156 +22,12 @@
 
 static int __read_mostly max_voltage_mv = 0;
 static int full_soc = 0;
-static int bat_current_avg = 0;
-static int __read_mostly bat_current_avg_coef = 0;
-static int bat_power_avg = 0;
-static int __read_mostly bat_power_avg_coef = 0;
 static int __read_mostly fcc_mah = 0;
 int bat_voltage_now = 0;
-static bool __read_mostly enable_avg_gauge = false;
 
 #ifdef CONFIG_DYNAMIC_FSYNC
 bool batt_soc_is_low = false;
 #endif
-
-static struct delayed_work check_bat_current_work;
-static struct delayed_work check_bat_power_work;
-
-static ssize_t max17048_enable_avg_gauge_read(struct device * dev,
-            struct device_attribute * attr, char * buf) {
-    return sprintf(buf, "%d\n", enable_avg_gauge);
-}
-
-static ssize_t max17048_enable_avg_gauge_write(struct device * dev,
-            struct device_attribute * attr, const char * buf, size_t size) {
-    int data;
-
-    if(sscanf(buf, "%d\n", &data) == 1 && data >= 0) {
-	    enable_avg_gauge = !!data;
-	} else {
-	    pr_info("%s: Invalid input\n", __FUNCTION__);
-	}
-
-    return size;
-}
-
-static DEVICE_ATTR(enable_avg_gauge, 0644, max17048_enable_avg_gauge_read,
-                max17048_enable_avg_gauge_write);
-
-static ssize_t qpnp_bat_current_avg_read(struct device * dev,
-            struct device_attribute * attr, char * buf) {
-    return sprintf(buf, "%d\n", enable_avg_gauge ? -bat_current_avg : 0);
-}
-
-static ssize_t qpnp_bat_current_avg_write(struct device * dev,
-            struct device_attribute * attr, const char * buf, size_t size) {
-    int data;
-
-    if(sscanf(buf, "%d\n", &data) == 1) {
-        bat_current_avg_coef = data;
-        pr_info("%s: bat_current_avg coefficient = %d\n", __FUNCTION__,
-                            bat_current_avg_coef);
-	} else {
-	    pr_info("%s: Invalid input\n", __FUNCTION__);
-	}
-
-    return size;
-}
-
-static DEVICE_ATTR(bat_current_avg, 0644, qpnp_bat_current_avg_read,
-                qpnp_bat_current_avg_write);
-
-static void check_bat_current(struct work_struct *work)
-{
-    struct qpnp_iadc_result i_result;
-
-#ifdef CONFIG_STATE_NOTIFIER
-	if (!enable_avg_gauge || state_suspended)
-	{
-		schedule_delayed_work_on(0, &check_bat_current_work,
-					msecs_to_jiffies(5000));
-		return;
-	}
-#endif
-
-	if (qpnp_iadc_is_ready()) {
-		pr_err("%s: qpnp iadc is not ready!\n", __func__);
-		goto reschedule;
-	}
-
-	if (qpnp_iadc_read(EXTERNAL_RSENSE, &i_result)) {
-		pr_err("%s: failed to read iadc\n", __func__);
-		goto reschedule;
-	}
-
-    if (!bat_current_avg_coef)
-        bat_current_avg = i_result.result_ua;
-    else
-        bat_current_avg += (i_result.result_ua - bat_current_avg) /
-                        bat_current_avg_coef;
-
-reschedule:
-    schedule_delayed_work_on(0, &check_bat_current_work,
-                    msecs_to_jiffies(200));
-}
-
-static ssize_t qpnp_bat_power_avg_read(struct device * dev,
-            struct device_attribute * attr, char * buf) {
-    return sprintf(buf, "%+08d\n", enable_avg_gauge ? bat_power_avg : 0);
-}
-
-static ssize_t qpnp_bat_power_avg_write(struct device * dev,
-            struct device_attribute * attr, const char * buf, size_t size) {
-    int data;
-
-    if(sscanf(buf, "%d\n", &data) == 1) {
-        bat_power_avg_coef = data;
-        pr_info("%s: bat_power_avg coefficient = %d\n", __FUNCTION__,
-                            bat_power_avg_coef);
-	} else {
-	    pr_info("%s: Invalid input\n", __FUNCTION__);
-	}
-
-    return size;
-}
-
-static DEVICE_ATTR(bat_power_avg, 0644, qpnp_bat_power_avg_read,
-                qpnp_bat_power_avg_write);
-
-static void check_bat_power(struct work_struct *work)
-{
-    struct qpnp_iadc_result i_result;
-
-#ifdef CONFIG_STATE_NOTIFIER
-	if (!enable_avg_gauge || state_suspended)
-	{
-		schedule_delayed_work_on(0, &check_bat_power_work,
-					msecs_to_jiffies(5000));
-		return;
-	}
-#endif
-
-	if (qpnp_iadc_is_ready()) {
-		pr_err("%s: qpnp iadc is not ready!\n", __func__);
-		goto reschedule;
-	}
-
-	if (qpnp_iadc_read(EXTERNAL_RSENSE, &i_result)) {
-		pr_err("%s: failed to read iadc\n", __func__);
-		goto reschedule;
-	}
-
-    if (!bat_power_avg_coef)
-        /* uA * mV / 1000 = uW */
-        bat_power_avg = i_result.result_ua / 1000 * bat_voltage_now;
-    else
-        bat_power_avg += (i_result.result_ua / 1000 * bat_voltage_now -
-                        bat_power_avg) / bat_power_avg_coef;
-
-reschedule:
-    schedule_delayed_work_on(0, &check_bat_power_work,
-                    msecs_to_jiffies(200));
-}
 
 static int __init get_def_max_voltage_mv(char *data)
 {
@@ -251,10 +107,7 @@ EXPORT_SYMBOL(set_fcc_mah);
 static struct attribute *max17048_tweaks_attributes[] = 
     {
 	&dev_attr_max_voltage_mv.attr,
-    &dev_attr_bat_current_avg.attr,
-    &dev_attr_bat_power_avg.attr,
     &dev_attr_fcc_mah.attr,
-	&dev_attr_enable_avg_gauge.attr,
 	NULL
     };
 
@@ -322,11 +175,6 @@ static int __init max17048_tweaks_init(void)
 	    pr_err("Failed to create sysfs group for device (%s)!\n",
                         max17048_tweaks_device.name);
 	}
-
-    INIT_DELAYED_WORK(&check_bat_current_work, check_bat_current);
-    schedule_delayed_work_on(0, &check_bat_current_work, 5);
-    INIT_DELAYED_WORK(&check_bat_power_work, check_bat_power);
-    schedule_delayed_work_on(0, &check_bat_power_work, 5);
 
     return 0;
 }
