@@ -244,7 +244,6 @@
 #include <linux/kthread.h>
 #include <linux/cryptohash.h>
 #include <linux/fips.h>
-#include <linux/mm.h>
 
 #ifdef CONFIG_GENERIC_HARDIRQS
 #include <linux/irq.h>
