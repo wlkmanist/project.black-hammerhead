@@ -252,12 +252,14 @@ static int max17048_get_capacity_from_soc(struct max17048_chip *chip)
 
 	pr_debug("%s: SOC raw = 0x%x%x\n", __func__, buf[0], buf[1]);
 
+#ifdef CONFIG_MAX17048_TWEAKS
 	batt_soc = (((int)buf[0]*256)+buf[1])*batt_soc_coeff;
 	batt_soc = (batt_soc - (chip->empty_soc * 1000000))
-#ifndef CONFIG_MAX17048_TWEAKS
-			/ ((chip->full_soc - chip->empty_soc) * 10000);
-#else
 			/ ((get_full_soc() - chip->empty_soc) * 10000);
+#else
+	batt_soc = (((int)buf[0]*256)+buf[1])*19531;
+	batt_soc = (batt_soc - (chip->empty_soc * 1000000))
+			/ ((chip->full_soc - chip->empty_soc) * 10000);
 #endif
 
 #ifdef CONFIG_BLX
@@ -451,7 +453,14 @@ static void max17048_work(struct work_struct *work)
 	if (ret < 0)
 		pr_err("%s : error clear alert irq register.\n", __func__);
 
-	if (chip->capacity_level == 0) {
+	/* We need to properly check uvlo even if battery shutdown is disabled */
+	if (chip->capacity_level
+#ifdef CONFIG_MAX17048_TWEAKS
+				== !battery_shutdown
+#else
+				== 0
+#endif
+				) {
 		max17048_check_low_vbatt(chip);
 		schedule_delayed_work(&chip->monitor_work,
 				msecs_to_jiffies(chip->poll_interval_ms));
@@ -721,6 +730,13 @@ static int qpnp_get_battery_temp(int *temp)
 	int ret = 0;
 	struct qpnp_vadc_result results;
 
+#ifdef CONFIG_MAX17048_TWEAKS
+	if (force_default_temp) {
+		*temp = DEFAULT_TEMP;
+		return 0;
+	}
+#endif
+
 	if (qpnp_vadc_is_ready()) {
 		*temp = DEFAULT_TEMP;
 		return 0;
@@ -733,11 +749,6 @@ static int qpnp_get_battery_temp(int *temp)
 		return ret;
 	}
 
-#ifdef CONFIG_MAX17048_TWEAKS
-	if (force_default_temp)
-		*temp = DEFAULT_TEMP;
-	else
-#endif
 		*temp = (int)results.physical;
 
 	return 0;
@@ -765,6 +776,13 @@ static int max17048_get_prop_temp(struct max17048_chip *chip)
 {
 #ifdef CONFIG_SENSORS_QPNP_ADC_VOLTAGE
 	int ret;
+
+#ifdef CONFIG_MAX17048_TWEAKS
+	if (force_default_temp) {
+		chip->batt_temp = DEFAULT_TEMP;
+		return chip->batt_temp;
+	}
+#endif
 
 	ret = qpnp_get_battery_temp(&chip->batt_temp);
 	if (ret)
