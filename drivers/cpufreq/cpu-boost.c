@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015,2020-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,6 +89,12 @@ module_param(input_boost_freq, uint, 0644);
 static unsigned int __read_mostly input_boost_ms = 0;
 module_param(input_boost_ms, uint, 0644);
 
+/*
+ * Time to boost cpu to max frequency when an app is launched
+ */
+static unsigned int __read_mostly app_launch_boost_ms = 1500;
+module_param(app_launch_boost_ms, uint, 0644);
+
 #ifdef CONFIG_STATE_NOTIFIER
 static bool __read_mostly disable_while_suspended = false;
 module_param(disable_while_suspended, bool, 0644);
@@ -117,7 +123,8 @@ struct cpu_sync *get_actual_sync_info(void)
  * again each time the CPU comes back up. We can use CPUFREQ_START to figure
  * out a CPU is coming online instead of registering for hotplug notifiers.
  */
-static int boost_adjust_notify(struct notifier_block *nb, unsigned long val, void *data)
+static int boost_adjust_notify(struct notifier_block *nb,
+	unsigned long val, void *data)
 {
 	struct cpufreq_policy *policy = data;
 	unsigned int cpu = policy->cpu;
@@ -130,6 +137,9 @@ static int boost_adjust_notify(struct notifier_block *nb, unsigned long val, voi
 	case CPUFREQ_ADJUST:
 		if (!b_min && !ib_min)
 			break;
+
+		ib_min = min((s->input_boost_min == UINT_MAX ?
+			policy->max : s->input_boost_min), policy->max);
 
 		min = max(b_min, ib_min);
 
@@ -300,6 +310,27 @@ static int boost_migration_notify(struct notifier_block *nb,
 static struct notifier_block boost_migration_nb = {
 	.notifier_call = boost_migration_notify,
 };
+
+void do_app_launch_boost()
+{
+	unsigned int i;
+	struct cpu_sync *i_sync_info;
+
+	if (!app_launch_boost_ms)
+		return;
+
+ 	cancel_delayed_work_sync(&i_sync_info->input_boost_rem);
+
+ 	for_each_possible_cpu(i) {
+		i_sync_info = &per_cpu(sync_info, i);
+		i_sync_info->input_boost_min = UINT_MAX;
+	}
+
+ 	update_policy_online();
+
+ 	queue_delayed_work(cpu_boost_wq, &i_sync_info->input_boost_rem,
+		msecs_to_jiffies(app_launch_boost_ms));
+}
 
 static void do_input_boost(struct work_struct *work)
 {
