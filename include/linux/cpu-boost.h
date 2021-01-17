@@ -1,6 +1,6 @@
-// by wlkmanist
-// 28 mar 2020
-
+/*
+ * Copyright (C) 2020-2021, wlkmanist <t.me/wlkmanist>
+ */
 
 
 #include <linux/sched.h>
@@ -27,6 +27,7 @@ struct cpu_sync {
 };
 
 struct cpu_sync *get_actual_sync_info(void);
+void do_app_launch_boost(void);
 
 #endif
 #endif
