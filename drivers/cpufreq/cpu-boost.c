@@ -34,11 +34,9 @@
 
 static DEFINE_PER_CPU(struct cpu_sync, sync_info);
 
-/* Workqueue used to run boosting algorithms on */
-static struct workqueue_struct *cpu_boost_wq;
-
-/* Instant input boosting work */
-static struct work_struct input_boost_work;
+static struct kthread_work input_boost_work;
+static struct kthread_worker cpu_boost_worker;
+static struct task_struct *cpu_boost_worker_thread;
 
 /*
  * Time in milliseconds to keep frequencies of source and destination cpus
@@ -174,7 +172,7 @@ static struct notifier_block boost_adjust_nb = {
 	.notifier_call = boost_adjust_notify,
 };
 
-static void do_boost_rem(struct work_struct *work)
+static void do_boost_rem(struct kthread_work *work)
 {
 	struct cpu_sync *s = container_of(work, struct cpu_sync,
 						boost_rem.work);
@@ -185,7 +183,7 @@ static void do_boost_rem(struct work_struct *work)
 	cpufreq_update_policy(s->cpu);
 }
 
-static void do_input_boost_rem(struct work_struct *work)
+static void do_input_boost_rem(struct kthread_work *work)
 {
 	struct cpu_sync *s = container_of(work, struct cpu_sync,
 						input_boost_rem.work);
@@ -260,7 +258,7 @@ static int boost_mig_sync_thread(void *data)
 
 		if (likely(cpu_online(dest_cpu))) {
 			cpufreq_update_policy(dest_cpu);
-			queue_delayed_work_on(dest_cpu, cpu_boost_wq,
+			queue_delayed_work_on(dest_cpu, system_wq,
 				&s->boost_rem, msecs_to_jiffies(boost_ms));
 		} else {
 			s->boost_min = 0;
@@ -337,11 +335,11 @@ void do_app_launch_boost()
 
  	update_policy_online();
 
- 	queue_delayed_work(cpu_boost_wq, &i_sync_info->input_boost_rem,
+ 	queue_delayed_work(system_wq, &i_sync_info->input_boost_rem,
 		msecs_to_jiffies(app_launch_boost_ms));
 }
 
-static void do_input_boost(struct work_struct *work)
+static void do_input_boost(struct kthread_work *work)
 {
 	unsigned int i, ret;
 	struct cpu_sync *i_sync_info;
@@ -366,7 +364,7 @@ static void do_input_boost(struct work_struct *work)
 #endif
 		i_sync_info->input_boost_min = input_boost_freq;
 		cpufreq_update_policy(i);
-		queue_delayed_work_on(i_sync_info->cpu, cpu_boost_wq,
+		queue_delayed_work_on(i_sync_info->cpu, system_wq,
 			&i_sync_info->input_boost_rem,
 			msecs_to_jiffies(input_boost_ms));
 	}
@@ -390,10 +388,10 @@ static void cpuboost_input_event(struct input_handle *handle,
 	if (now - last_input_time < MIN_INPUT_INTERVAL)
 		return;
 
-	if (work_pending(&input_boost_work))
+	if (queuing_blocked(&cpu_boost_worker, &input_boost_work))
 		return;
 
-	queue_work(cpu_boost_wq, &input_boost_work);
+	queue_work(system_wq, &input_boost_work);
 	last_input_time = ktime_to_us(ktime_get());
 }
 
@@ -472,12 +470,17 @@ static int cpu_boost_init(void)
 {
 	int cpu, ret;
 	struct cpu_sync *s;
+	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 2 };
 
-	cpu_boost_wq = alloc_workqueue("cpuboost_wq", WQ_HIGHPRI, 0);
-	if (!cpu_boost_wq)
+	init_kthread_worker(&cpu_boost_worker);
+	cpu_boost_worker_thread = kthread_run(kthread_worker_fn,
+		&cpu_boost_worker, "cpu_boost_worker_thread");
+	if (IS_ERR(cpu_boost_worker_thread))
 		return -EFAULT;
 
-	INIT_WORK(&input_boost_work, do_input_boost);
+	sched_setscheduler(cpu_boost_worker_thread, SCHED_FIFO, &param);
+
+	init_kthread_work(&input_boost_work, do_input_boost);
 
 	for_each_possible_cpu(cpu) {
 		s = &per_cpu(sync_info, cpu);
