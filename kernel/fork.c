@@ -70,6 +70,10 @@
 #include <linux/khugepaged.h>
 #include <linux/signalfd.h>
 
+#ifdef CONFIG_CPUBOOST
+#include <linux/cpu-boost.h>
+#endif
+
 #include <asm/pgtable.h>
 #include <asm/pgalloc.h>
 #include <asm/uaccess.h>
@@ -1628,6 +1632,11 @@ long do_fork(unsigned long clone_flags,
 	struct task_struct *p;
 	int trace = 0;
 	long nr;
+
+#ifdef CONFIG_CPUBOOST
+	if (is_zygote_pid(current->pid))
+		do_app_launch_boost();
+#endif
 
 	/*
 	 * Do some preliminary argument and permissions checking before we
