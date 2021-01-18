@@ -53,6 +53,9 @@ module_param(low_batt_disable_dyn_fsync, bool, 0644);
 #endif
 #endif
 
+static int __read_mostly uvlo_thr_mv = 0;
+module_param(uvlo_thr_mv, int, 0644);
+
 #define MODE_REG      0x06
 #define VCELL_REG     0x02
 #define SOC_REG       0x04
@@ -108,7 +111,6 @@ struct max17048_chip {
 	int batt_temp;
 	int batt_health;
 	int batt_current;
-	int uvlo_thr_mv;
 	int poll_interval_ms;
 };
 
@@ -404,7 +406,12 @@ static void max17048_check_low_vbatt(struct max17048_chip *chip)
 		return;
 	}
 
-	if (chip->voltage < chip->uvlo_thr_mv) {
+	if (unlikely(!uvlo_thr_mv))
+		uvlo_thr_mv = 3000;
+	else
+		uvlo_thr_mv = max(min(uvlo_thr_mv, 3200), 2600);
+
+	if (chip->voltage < uvlo_thr_mv) {
 		chip->poll_interval_ms = UVLO_FAST_POLL_MS;
 		uvlo_cnt ++;
 	} else {
@@ -671,7 +678,7 @@ static int max17048_parse_dt(struct device *dev,
 	}
 
 	ret = of_property_read_u32(dev_node, "max17048,uvlo-thr-mv",
-				   &chip->uvlo_thr_mv);
+				   &uvlo_thr_mv);
 	if (ret) {
 		pr_err("%s: failed to read uvlo threshold\n", __func__);
 		goto out;
@@ -687,7 +694,7 @@ static int max17048_parse_dt(struct device *dev,
 #else
 			get_full_soc(),
 #endif
-			chip->empty_soc, chip->uvlo_thr_mv);
+			chip->empty_soc, uvlo_thr_mv);
 
 out:
 	return ret;
