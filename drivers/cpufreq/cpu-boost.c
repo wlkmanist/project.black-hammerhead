@@ -94,7 +94,7 @@ module_param(input_boost_ms, uint, 0644);
 /*
  * Time to boost cpu to max frequency when an app is launched
  */
-static unsigned int __read_mostly app_launch_boost_ms = 1500;
+static unsigned int __read_mostly app_launch_boost_ms = 0;
 module_param(app_launch_boost_ms, uint, 0644);
 
 #ifdef CONFIG_STATE_NOTIFIER
