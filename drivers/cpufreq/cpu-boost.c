@@ -177,7 +177,7 @@ static struct notifier_block boost_adjust_nb = {
 	.notifier_call = boost_adjust_notify,
 };
 
-static void do_boost_rem(struct kthread_work *work)
+static void do_boost_rem(struct work_struct *work)
 {
 	struct cpu_sync *s = container_of(work, struct cpu_sync,
 						boost_rem.work);
@@ -188,7 +188,7 @@ static void do_boost_rem(struct kthread_work *work)
 	cpufreq_update_policy(s->cpu);
 }
 
-static void do_input_boost_rem(struct kthread_work *work)
+static void do_input_boost_rem(struct work_struct *work)
 {
 	struct cpu_sync *s = container_of(work, struct cpu_sync,
 						input_boost_rem.work);
@@ -341,8 +341,13 @@ void do_app_launch_boost()
 		i_sync_info->input_boost_min = UINT_MAX;
 	}
 
- 	update_policy_online();
-
+	get_online_cpus();
+	for_each_online_cpu(i) {
+		pr_debug("Updating policy for CPU%d\n", i);
+		cpufreq_update_policy(i);
+	}
+	put_online_cpus();
+	
  	queue_delayed_work(system_wq, &i_sync_info->input_boost_rem,
 		msecs_to_jiffies(app_launch_boost_ms));
 }
@@ -399,7 +404,7 @@ static void cpuboost_input_event(struct input_handle *handle,
 	if (queuing_blocked(&cpu_boost_worker, &input_boost_work))
 		return;
 
-	queue_work(system_wq, &input_boost_work);
+	queue_kthread_work(&cpu_boost_worker, &input_boost_work);
 	last_input_time = ktime_to_us(ktime_get());
 }
 
