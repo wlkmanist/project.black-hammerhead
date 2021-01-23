@@ -172,7 +172,11 @@ struct current_limit_entry {
 
 static struct current_limit_entry adap_tbl[] = {
 	{1200, 1024},
-	{2000, 1792},
+#ifndef CONFIG_FORCE_FAST_CHARGE
+	{1500, 1280},
+#else
+	{2400, 2048},
+#endif
 };
 
 static int bq24192_step_down_detect_disable(struct bq24192_chip *chip);
@@ -349,7 +353,7 @@ static int bq24192_set_input_i_limit(struct bq24192_chip *chip, int ma)
 #ifdef CONFIG_FORCE_FAST_CHARGE
 	if (force_fast_charge == 1) {
 		i = 4;
-		custom_ma = FAST_CHARGE_1500;
+		custom_ma = FAST_CHARGE_1200;
 	} else if (force_fast_charge == 2) {
 		switch (fast_charge_level) {
 			case FAST_CHARGE_500:
@@ -1107,10 +1111,23 @@ static void bq24192_external_power_changed(struct power_supply *psy)
 		chip->usb_psy->get_property(chip->usb_psy,
 				  POWER_SUPPLY_PROP_CURRENT_MAX, &ret);
 		bq24192_set_input_vin_limit(chip, chip->vin_limit_mv);
+
+#ifdef CONFIG_FORCE_FAST_CHARGE
+		if (!force_fast_charge)
+			ret.intval = min(ret.intval, adap_tbl[0].input_limit * 1000);
+#endif
 		bq24192_set_input_i_limit(chip, ret.intval / 1000);
-		bq24192_set_ibat_max(chip, USB_MAX_IBAT_MA);
+
+#ifdef CONFIG_FORCE_FAST_CHARGE
+		if (!force_fast_charge)
+			bq24192_set_ibat_max(chip, adap_tbl[0].chg_limit);
+		else
+#endif
+			bq24192_set_ibat_max(chip, USB_MAX_IBAT_MA);
+
 		pr_info("usb is online! i_limit = %d v_limit = %d\n",
 				ret.intval / 1000, chip->vin_limit_mv);
+
 	} else if (chip->ac_online &&
 			bq24192_is_charger_present(chip)) {
 		chip->icl_first = true;
@@ -1276,10 +1293,17 @@ static void bq24192_input_limit_worker(struct work_struct *work)
 	if (vbus_mv > chip->icl_vbus_mv
 			&& chip->icl_idx < (ARRAY_SIZE(adap_tbl) - 1)) {
 		chip->icl_idx++;
+#ifndef CONFIG_FORCE_FAST_CHARGE
 		bq24192_set_input_i_limit(chip,
 				adap_tbl[chip->icl_idx].input_limit);
 		bq24192_set_ibat_max(chip,
 				adap_tbl[chip->icl_idx].chg_limit);
+#else
+		bq24192_set_input_i_limit(chip,
+				adap_tbl[force_fast_charge && chip->icl_idx].input_limit);
+		bq24192_set_ibat_max(chip,
+				adap_tbl[force_fast_charge && chip->icl_idx].chg_limit);
+#endif
 		queue_delayed_work(system_power_efficient_wq,
 			&chip->input_limit_work,
 			msecs_to_jiffies(500));
@@ -1288,10 +1312,17 @@ static void bq24192_input_limit_worker(struct work_struct *work)
 			chip->icl_idx--;
 
 		bq24192_set_input_vin_limit(chip, chip->vin_limit_mv);
+#ifndef CONFIG_FORCE_FAST_CHARGE
 		bq24192_set_input_i_limit(chip,
 				adap_tbl[chip->icl_idx].input_limit);
 		bq24192_set_ibat_max(chip,
 				adap_tbl[chip->icl_idx].chg_limit);
+#else
+		bq24192_set_input_i_limit(chip,
+				adap_tbl[force_fast_charge && chip->icl_idx].input_limit);
+		bq24192_set_ibat_max(chip,
+				adap_tbl[force_fast_charge && chip->icl_idx].chg_limit);
+#endif
 
 		if (adap_tbl[chip->icl_idx].chg_limit
 				> chip->step_dwn_currnet_ma) {
