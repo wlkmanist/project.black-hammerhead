@@ -1,0 +1,26 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "forcedInclude": [
+                "${workspaceFolder}/include/linux/kconfig.h",
+                "${workspaceFolder}/include/linux/compiler_types.h",
+                "${workspaceFolder}/include/generated/autoconf.h"
+            ],
+            "defines": [
+                "__GNUC__=4",
+                "__GNUC_MINOR__=9",
+                "__KERNEL__",
+                "MODULE",
+                "KBUILD_MODNAME=\"modname\""
+            ],
+            "cStandard": "c89",
+            "intelliSenseMode": "gcc-arm",
+            "compilerPath": "/mnt/Data/tools/UBERTC-4.9.4/bin/arm-eabi-gcc"
+        }
+    ],
+    "version": 4
+}
