@@ -30,6 +30,7 @@ modules.builtin
 *.lzma
 *.xz
 *.lzo
+*.lz4
 *.patch
 *.gcno
 
@@ -63,6 +64,8 @@ include/config
 include/linux/version.h
 include/generated
 arch/*/include/generated
+
+arch/arm/mach-msm/smd_rpc_sym.c
 
 # stgit generated dirs
 patches-*
