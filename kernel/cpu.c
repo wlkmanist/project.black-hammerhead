@@ -257,6 +257,10 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen)
 		.mod = mod,
 		.hcpu = hcpu,
 	};
+#ifdef CONFIG_CPUBOOST
+	struct cpu_sync *s = &per_cpu(*get_actual_sync_info(), cpu);
+	struct cpufreq_policy policy;
+#endif
 
 	if (num_online_cpus() == 1)
 		return -EBUSY;
@@ -265,6 +269,23 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen)
 		return -EINVAL;
 
 	cpu_hotplug_begin();
+
+#ifdef CONFIG_CPUBOOST
+	if (!cpufreq_get_policy(&policy, cpu))
+	{
+		cancel_delayed_work_sync(&s->boost_rem);
+		cancel_delayed_work_sync(&s->input_boost_rem);
+		cpufreq_verify_within_limits(&policy, 0, UINT_MAX);
+		s->boost_min = 0;
+		s->input_boost_min = 0;
+		cpufreq_update_policy(cpu);
+	}
+	else
+	{
+		err = -EBUSY;
+		goto out_release;
+	}
+#endif
 
 	err = __cpu_notify(CPU_DOWN_PREPARE | mod, hcpu, -1, &nr_calls);
 	if (err) {
