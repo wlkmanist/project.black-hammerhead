@@ -184,6 +184,7 @@ module_param_call(gen_wcnss_panic, gen_wcnss_panic, param_get_bool, &dummy_arg,
 #define WDT0_BARK_TIME  0x10
 #define WDT0_BITE_TIME  0x14
 
+#ifdef CONFIG_MSM_WATCHDOG_V2
 extern void __iomem *wdt_timer_get_timer0_base(void);
 
 static int gen_wdt_bark(const char *val, struct kernel_param *kp)
@@ -214,6 +215,21 @@ static int gen_wdt_bite(const char *val, struct kernel_param *kp)
 }
 module_param_call(gen_wdt_bite, gen_wdt_bite, param_get_bool,
 		&dummy_arg, S_IWUSR | S_IRUGO);
+#else
+static int gen_wdt_bark(const char *val, struct kernel_param *kp)
+{
+	return 0;
+}
+module_param_call(gen_wdt_bark, gen_wdt_bark, param_get_bool,
+		&dummy_arg, S_IWUSR | S_IRUGO);
+
+static int gen_wdt_bite(const char *val, struct kernel_param *kp)
+{
+	return 0;
+}
+module_param_call(gen_wdt_bite, gen_wdt_bite, param_get_bool,
+		&dummy_arg, S_IWUSR | S_IRUGO);
+#endif
 
 static int gen_bus_hang(const char *val, struct kernel_param *kp)
 {
