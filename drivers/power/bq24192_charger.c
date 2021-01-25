@@ -310,8 +310,10 @@ static struct input_ma_limit_entry icl_ma_table[] = {
 	{900, 0x03},
 	{1200, 0x04},
 	{1500, 0x05},
-	{2000, 0x06},
-	{3000, 0x07},
+	{1800, 0x06},
+	{2000, 0x07},
+	{2400, 0x08},
+	{3000, 0x09},
 };
 
 #define INPUT_CURRENT_LIMIT_MIN_MA  100
@@ -1077,7 +1079,7 @@ static bool bq24192_is_wlc_bounced(struct bq24192_chip *chip)
 }
 
 #define WLC_INPUT_I_LIMIT_MA 900
-#define USB_MAX_IBAT_MA 1500
+#define USB_MAX_IBAT_MA 2400
 static void bq24192_external_power_changed(struct power_supply *psy)
 {
 	struct bq24192_chip *chip = container_of(psy,
