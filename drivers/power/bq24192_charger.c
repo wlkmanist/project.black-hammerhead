@@ -910,6 +910,11 @@ static int bq24192_step_down_detect_init(struct bq24192_chip *chip)
 		return ret;
 	}
 
+#ifdef CONFIG_MAX17048_TWEAKS
+	if (get_max_voltage_mv())
+		chip->step_dwn_thr_mv = get_max_voltage_mv() - 100;
+#endif
+
 	chip->adc_param.high_thr = chip->step_dwn_thr_mv * 1000;
 	chip->adc_param.low_thr = DISABLE_LOW_THR;
 	chip->adc_param.timer_interval = ADC_MEAS1_INTERVAL_2S;
