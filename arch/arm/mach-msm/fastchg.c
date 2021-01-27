@@ -31,7 +31,7 @@
 #define FAST_CHARGE_VERSION	"version 2.1 mod by wlkmanist"
 
 int force_fast_charge = FAST_CHARGE_DISABLED;
-int fast_charge_level = FAST_CHARGE_1500;
+int fast_charge_level = FAST_CHARGE_1200;
 int fake_charge_ac = FAKE_CHARGE_AC_DISABLE;
 
 /* sysfs interface for "force_fast_charge" */
@@ -181,7 +181,7 @@ int force_fast_charge_init(void)
 	fake_charge_ac = FAKE_CHARGE_AC_DISABLE;
 
 	 /* Initialize fast charge level */
-	fast_charge_level = FAST_CHARGE_1500;
+	fast_charge_level = FAST_CHARGE_1200;
 
 	force_fast_charge_kobj
 		= kobject_create_and_add("fast_charge", kernel_kobj);
