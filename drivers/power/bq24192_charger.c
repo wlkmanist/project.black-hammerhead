@@ -859,6 +859,7 @@ static void bq24192_vbat_work(struct work_struct *work)
 	}
 
 	if (bq24192_is_charger_present(chip)) {
+		pr_info("chip->vbat_noti_stat == %d\n", chip->vbat_noti_stat);
 		pr_info("change to chg current = %d, input_limit = %d\n",
 				step_current_ma, step_input_i_ma);
 		bq24192_set_input_i_limit(chip, step_input_i_ma);
@@ -1292,18 +1293,15 @@ static void bq24192_input_limit_worker(struct work_struct *work)
 
 	if (vbus_mv > chip->icl_vbus_mv
 			&& chip->icl_idx < (ARRAY_SIZE(adap_tbl) - 1)) {
+#ifdef CONFIG_FORCE_FAST_CHARGE
+		if (force_fast_charge)	/* use adap_tbl[1] only if FFC enabled */
+#endif
 		chip->icl_idx++;
-#ifndef CONFIG_FORCE_FAST_CHARGE
+
 		bq24192_set_input_i_limit(chip,
 				adap_tbl[chip->icl_idx].input_limit);
 		bq24192_set_ibat_max(chip,
 				adap_tbl[chip->icl_idx].chg_limit);
-#else
-		bq24192_set_input_i_limit(chip,
-				adap_tbl[force_fast_charge && chip->icl_idx].input_limit);
-		bq24192_set_ibat_max(chip,
-				adap_tbl[force_fast_charge && chip->icl_idx].chg_limit);
-#endif
 		queue_delayed_work(system_power_efficient_wq,
 			&chip->input_limit_work,
 			msecs_to_jiffies(500));
@@ -1312,17 +1310,11 @@ static void bq24192_input_limit_worker(struct work_struct *work)
 			chip->icl_idx--;
 
 		bq24192_set_input_vin_limit(chip, chip->vin_limit_mv);
-#ifndef CONFIG_FORCE_FAST_CHARGE
+
 		bq24192_set_input_i_limit(chip,
 				adap_tbl[chip->icl_idx].input_limit);
 		bq24192_set_ibat_max(chip,
 				adap_tbl[chip->icl_idx].chg_limit);
-#else
-		bq24192_set_input_i_limit(chip,
-				adap_tbl[force_fast_charge && chip->icl_idx].input_limit);
-		bq24192_set_ibat_max(chip,
-				adap_tbl[force_fast_charge && chip->icl_idx].chg_limit);
-#endif
 
 		if (adap_tbl[chip->icl_idx].chg_limit
 				> chip->step_dwn_currnet_ma) {
@@ -1333,6 +1325,11 @@ static void bq24192_input_limit_worker(struct work_struct *work)
 			bq24192_step_down_detect_init(chip);
 		}
 
+#ifdef CONFIG_FORCE_FAST_CHARGE
+		pr_info("force_fast_charge == %d, icl_idx == %d\n",
+					force_fast_charge,
+					chip->icl_idx);
+#endif
 		pr_info("optimal input i limit = %d chg limit = %d\n",
 					adap_tbl[chip->icl_idx].input_limit,
 					adap_tbl[chip->icl_idx].chg_limit);
