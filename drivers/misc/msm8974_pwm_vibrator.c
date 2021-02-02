@@ -87,6 +87,7 @@ struct timed_vibrator_data {
 	int status;             /* vibe status */
 	int gain;               /* default max gain(amp) */
 	int pwm;                /* n-value */
+	bool invert;
 	int braking_gain;
 	int braking_ms;
 	int gp1_clk_flag;
@@ -105,6 +106,18 @@ static struct timed_vibrator_data *vib_dev;
 #endif
 
 static struct clk *cam_gp1_clk;
+
+static bool _invert = false;
+
+static int __init _set_invert(char *data)
+{
+    if (strcmp(data, "1") == 0)
+		_invert = true;
+
+	return 0;
+}
+
+__setup("vib_invert=", _set_invert);
 
 static int vibrator_regulator_init(
 		struct platform_device *pdev,
@@ -233,7 +246,7 @@ static int msm8974_pwm_vibrator_braking(struct timed_vibrator_data *vib)
 	if (vib->status <= VIB_STAT_BRAKING || !vib->braking_ms)
 		return 0; /* don't need a braking */
 
-	vibrator_pwm_set(1, vib->braking_gain * -1, vib->pwm);
+	vibrator_pwm_set(1, vib->braking_gain * (vib->invert ? 1 : -1), vib->pwm);
 	vib->status = VIB_STAT_BRAKING;
 	hrtimer_start(&vib->timer,
 		ns_to_ktime((u64)vib->braking_ms * NSEC_PER_MSEC),
@@ -311,10 +324,10 @@ static int msm8974_pwm_vibrator_force_set(struct timed_vibrator_data *vib,
 
 		vibrator_set_power(1, vib);
 		if (status == VIB_STAT_DRIVING) {
-			vibrator_pwm_set(1, 100, n_value);
+			vibrator_pwm_set(1, (vib->invert ? -100 : 100), n_value);
 			vib_duration_ms = vib->driving_ms;
 		} else {
-			vibrator_pwm_set(1, gain, n_value);
+			vibrator_pwm_set(1, (vib->invert ? -gain : gain), n_value);
 			vib_duration_ms = vib->ms_time + vib->warmup_ms;
 		}
 		vibrator_ic_enable_set(1, vib);
@@ -737,6 +750,36 @@ static ssize_t vibrator_warmup_ms_store(struct device *dev,
 	return size;
 }
 
+static ssize_t vibrator_invert_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct timed_output_dev *_dev = dev_get_drvdata(dev);
+	struct timed_vibrator_data *vib =
+		container_of(_dev, struct timed_vibrator_data, dev);
+
+	return sprintf(buf, "%d\n", (int)vib->invert);
+}
+
+static ssize_t vibrator_invert_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct timed_output_dev *_dev = dev_get_drvdata(dev);
+	struct timed_vibrator_data *vib =
+		container_of(_dev, struct timed_vibrator_data, dev);
+	long r;
+	int ret;
+
+	ret = kstrtol(buf, 10, &r);
+	if (ret < 0) {
+		pr_err("%s: failed to store value\n", __func__);
+		return ret;
+	}
+
+	vib->invert = !!r;
+
+	return size;
+}
+
 static struct device_attribute vibrator_device_attrs[] = {
 	__ATTR(amp, 0666, vibrator_amp_show, vibrator_amp_store),
 	__ATTR(n_val, S_IRUGO | S_IWUSR, vibrator_pwm_show, vibrator_pwm_store),
@@ -748,6 +791,8 @@ static struct device_attribute vibrator_device_attrs[] = {
 		vibrator_driving_ms_show, vibrator_driving_ms_store),
 	__ATTR(warmup_ms, S_IRUGO | S_IWUSR,
 		vibrator_warmup_ms_show, vibrator_warmup_ms_store),
+	__ATTR(invert_polarity, S_IRUGO | S_IWUSR,
+		vibrator_invert_show, vibrator_invert_store),
 };
 
 static struct timed_vibrator_data msm8974_pwm_vibrator_data = {
@@ -799,6 +844,7 @@ static int msm8974_pwm_vibrator_probe(struct platform_device *pdev)
 
 	vib->status = VIB_STAT_STOP;
 	vib->gp1_clk_flag = 0;
+	vib->invert = _invert;
 
 	INIT_DELAYED_WORK(&vib->work_vibrator_off, msm8974_pwm_vibrator_off);
 	INIT_DELAYED_WORK(&vib->work_vibrator_on, msm8974_pwm_vibrator_on);
