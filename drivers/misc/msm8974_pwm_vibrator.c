@@ -780,6 +780,46 @@ static ssize_t vibrator_invert_store(struct device *dev,
 	return size;
 }
 
+static ssize_t vibrator_voltage_mv_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct timed_output_dev *_dev = dev_get_drvdata(dev);
+	struct timed_vibrator_data *vib =
+		container_of(_dev, struct timed_vibrator_data, dev);
+
+	return sprintf(buf, "%d\n", regulator_get_voltage(vib->vdd_reg) / 1000);
+}
+
+static ssize_t vibrator_voltage_mv_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct timed_output_dev *_dev = dev_get_drvdata(dev);
+	struct timed_vibrator_data *vib =
+		container_of(_dev, struct timed_vibrator_data, dev);
+	long r;
+	int ret;
+
+	ret = kstrtol(buf, 10, &r);
+	if (ret < 0) {
+		pr_err("%s: failed to store value\n", __func__);
+		return ret;
+	}
+
+	if (r < 1500 || r > 4500) {
+		pr_err("%s: out of range\n", __func__);
+		return -EINVAL;
+	}
+
+	ret = regulator_set_voltage(vib->vdd_reg,
+			r * 1000, r * 1000);
+	if (ret) {
+		pr_err("%s: vdd_reg->set_voltage failed\n", __func__);
+		return -EINVAL;
+	}
+
+	return size;
+}
+
 static struct device_attribute vibrator_device_attrs[] = {
 	__ATTR(amp, 0666, vibrator_amp_show, vibrator_amp_store),
 	__ATTR(n_val, S_IRUGO | S_IWUSR, vibrator_pwm_show, vibrator_pwm_store),
@@ -793,6 +833,8 @@ static struct device_attribute vibrator_device_attrs[] = {
 		vibrator_warmup_ms_show, vibrator_warmup_ms_store),
 	__ATTR(invert_polarity, S_IRUGO | S_IWUSR,
 		vibrator_invert_show, vibrator_invert_store),
+	__ATTR(voltage_mv, S_IRUGO | S_IWUSR,
+		vibrator_voltage_mv_show, vibrator_voltage_mv_store),
 };
 
 static struct timed_vibrator_data msm8974_pwm_vibrator_data = {
