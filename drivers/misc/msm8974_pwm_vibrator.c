@@ -105,7 +105,7 @@ struct timed_vibrator_data {
 static struct timed_vibrator_data *vib_dev;
 #endif
 
-static struct clk *cam_gp1_clk;
+static struct clk *cam_gp1_clk = NULL;
 
 static bool _invert = false;
 
@@ -819,6 +819,46 @@ static ssize_t vibrator_voltage_mv_store(struct device *dev,
 
 	return size;
 }
+/*
+static ssize_t vibrator_clock_rate_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	if (cam_gp1_clk == NULL) {
+		return -ENODEV;
+	}
+
+	return sprintf(buf, "%ud\n", cam_gp1_clk->rate);
+}*/
+
+static ssize_t vibrator_clock_rate_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	long r;
+	int ret;
+
+	ret = kstrtol(buf, 10, &r);
+	if (ret < 0) {
+		pr_err("%s: failed to store value\n", __func__);
+		return ret;
+	}
+
+	if (r < 0) {
+		pr_err("%s: out of range\n", __func__);
+		return -EINVAL;
+	}
+
+	if (cam_gp1_clk == NULL) {
+		return -ENODEV;
+	}
+
+	ret = clk_set_rate(cam_gp1_clk, r);
+	if (ret) {
+		pr_err("%s: clk_set_rate failed\n", __func__);
+		return ret;
+	}
+
+	return size;
+}
 
 static struct device_attribute vibrator_device_attrs[] = {
 	__ATTR(amp, 0666, vibrator_amp_show, vibrator_amp_store),
@@ -835,6 +875,8 @@ static struct device_attribute vibrator_device_attrs[] = {
 		vibrator_invert_show, vibrator_invert_store),
 	__ATTR(voltage_mv, S_IRUGO | S_IWUSR,
 		vibrator_voltage_mv_show, vibrator_voltage_mv_store),
+	__ATTR(clock_rate, S_IWUSR,
+		NULL, vibrator_clock_rate_store),
 };
 
 static struct timed_vibrator_data msm8974_pwm_vibrator_data = {
