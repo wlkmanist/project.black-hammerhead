@@ -57,7 +57,9 @@ static struct msm_xo_voter *vib_clock;
 #define DEVICE_NAME		"msm8974_pwm_vibrator"
 
 #define MMSS_CC_N_DEFAULT	41
+#define MMSS_CC_D_MAX		MMSS_CC_N_DEFAULT
 #define MMSS_CC_D_HALF		(MMSS_CC_N_DEFAULT >> 1)
+#define MMSS_CC_M_DEFAULT	1
 
 static DEFINE_MUTEX(vib_lock);
 
@@ -229,25 +231,52 @@ static int vibrator_adjust_amp(int amp)
 
 static int vibrator_pwm_set(int enable, int amp, int n_value)
 {
-	uint d_val;
+	uint M_VAL = MMSS_CC_M_DEFAULT;
+	uint D_VAL = 0;
+	uint D_INV = 0;
 
 	pr_debug("%s: amp %d, value %d\n", __func__, amp, n_value);
 
-	d_val = ((MMSS_CC_N_DEFAULT * amp) >> 7);
 	virt_base = ioremap(MMSS_CC_PWM_SET, MMSS_CC_PWM_SIZE);
 	if (enable) {
+		if (amp)
+			D_VAL = vibrator_adjust_amp(amp) + MMSS_CC_D_HALF;
+		if (D_VAL > MMSS_CC_D_HALF) {
+			D_VAL = MMSS_CC_D_MAX - D_VAL;
+			D_INV = 1;
+		}
+
 		REG_WRITEL(
-			((~(d_val << 1)) & 0xffU),	/* D[7:0] */
+			(((M_VAL & 0xffU) << 16U) + /* M_VAL[23:16] */
+			((~(D_VAL << 1)) & 0xffU)),	/* D[7:0] */
 			MMSS_CC_GP1_CMD_RCGR(0x10));
 		REG_WRITEL(
-			(1 << 1U) +	/* ROOT_EN[1] */
-			(1),		/* UPDATE[0] */
+			((((~(n_value-M_VAL)) & 0xffU) << 16U) + /* N_VAL[23:16] */
+			(1U << 11U) +  /* CLK_ROOT_ENA[11]  : Enable(1) */
+			((D_INV & 0x01U) << 10U) +  /* CLK_INV[10]       : Disable(0) */
+			(1U << 9U) +   /* CLK_BRANCH_ENA[9] : Enable(1) */
+			(1U << 8U) +   /* NMCNTR_EN[8]      : Enable(1) */
+			(0U << 7U) +   /* MNCNTR_RST[7]     : Not Active(0) */
+			(2U << 5U) +   /* MNCNTR_MODE[6:5]  : Dual-edge mode(2) */
+			(3U << 3U) +   /* PRE_DIV_SEL[4:3]  : Div-4 (3) */
+			(5U << 0U)),   /* SRC_SEL[2:0]      : CXO (5)  */
 			MMSS_CC_GP1_CMD_RCGR(0));
+		pr_debug("%s: PWM is enable with M=%d N=%d D=%d\n",
+				__func__,
+				M_VAL, n_value, D_VAL);
 	} else {
 		REG_WRITEL(
-			(0 << 1U) +	/* ROOT_EN[1] */
-			(0),		/* UPDATE[0] */
+			((((~(n_value-M_VAL)) & 0xffU) << 16U) + /* N_VAL[23:16] */
+			(0U << 11U) +  /* CLK_ROOT_ENA[11]  : Disable(0) */
+			(0U << 10U) +  /* CLK_INV[10]	    : Disable(0) */
+			(0U << 9U) +	 /* CLK_BRANCH_ENA[9] : Disable(0) */
+			(0U << 8U) +   /* NMCNTR_EN[8]      : Disable(0) */
+			(0U << 7U) +   /* MNCNTR_RST[7]     : Not Active(0) */
+			(2U << 5U) +   /* MNCNTR_MODE[6:5]  : Dual-edge mode(2) */
+			(3U << 3U) +   /* PRE_DIV_SEL[4:3]  : Div-4 (3) */
+			(5U << 0U)),   /* SRC_SEL[2:0]      : CXO (5)  */
 			MMSS_CC_GP1_CMD_RCGR(0));
+		pr_debug("%s: PWM is disable\n", __func__);
 	}
 
 	return 0;
