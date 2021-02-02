@@ -46,25 +46,17 @@ static struct workqueue_struct *vibrator_workqueue;
 #endif
 
 /* gpio and clock control for vibrator */
+#define REG_WRITEL(value, reg)		writel(value, reg)
 static void __iomem *virt_base;
 static struct msm_xo_voter *vib_clock;
 
-#define MMSS_CC_GP1_BASE(x) (void __iomem *)(virt_base + (x))
-#define REG_CMD_RCGR	0x00
-#define REG_CFG_RCGR	0x04
-#define REG_M		0x08
-#define REG_N		0x0C
-#define REG_D		0x10
-#define REG_CBCR	0x24
+#define MMSS_CC_GP1_CMD_RCGR(x) (void __iomem *)(virt_bases_v + (x))
 
 #define MMSS_CC_PWM_SET		0xFD8C3450
 #define MMSS_CC_PWM_SIZE	SZ_1K
 #define DEVICE_NAME		"msm8974_pwm_vibrator"
 
-#define MMSS_CC_M_DEFAULT	1
-#define MMSS_CC_N_DEFAULT	128
-#define MMSS_CC_D_MAX		MMSS_CC_N_DEFAULT
-#define MMSS_CC_D_HALF		(MMSS_CC_N_DEFAULT >> 1)
+#define MMSS_CC_N_DEFAULT	41
 
 static DEFINE_MUTEX(vib_lock);
 
@@ -236,26 +228,26 @@ static int vibrator_adjust_amp(int amp)
 
 static int vibrator_pwm_set(int enable, int amp, int n_value)
 {
-	int d_val = 0;
-	int m_val = MMSS_CC_M_DEFAULT;
+	uint d_val;
 
 	pr_debug("%s: amp %d, value %d\n", __func__, amp, n_value);
 
-	enable = !!enable;
+	d_val = ((MMSS_CC_N_DEFAULT * amp) >> 7);
+	virt_bases_v = ioremap(MMSS_CC_PWM_SET, MMSS_CC_PWM_SIZE);
 	if (enable) {
-		if (amp)
-			d_val = vibrator_adjust_amp(amp) + MMSS_CC_D_HALF;
-
-		writel((2 << 12) | /* dual edge mode */
-		       (0 << 8) |  /* cxo */
-		       (7 << 0),
-		       MMSS_CC_GP1_BASE(REG_CFG_RCGR));
-		writel(((m_val) & 0xff), MMSS_CC_GP1_BASE(REG_M));
-		writel(((~(n_value - m_val)) & 0xff), MMSS_CC_GP1_BASE(REG_N));
-		writel(((~(d_val << 1)) & 0xff), MMSS_CC_GP1_BASE(REG_D));
-		writel(enable, MMSS_CC_GP1_BASE(REG_CMD_RCGR)); /* UPDATE */
+		REG_WRITEL(
+			((~(d_val << 1)) & 0xffU),	/* D[7:0] */
+			MMSS_CC_GP1_CMD_RCGR(0x10));
+		REG_WRITEL(
+			(1 << 1U) +	/* ROOT_EN[1] */
+			(1),		/* UPDATE[0] */
+			MMSS_CC_GP1_CMD_RCGR(0));
+	} else {
+		REG_WRITEL(
+			(0 << 1U) +	/* ROOT_EN[1] */
+			(0),		/* UPDATE[0] */
+			MMSS_CC_GP1_CMD_RCGR(0));
 	}
-	writel(enable, MMSS_CC_GP1_BASE(REG_CBCR));
 
 	return 0;
 }
