@@ -50,13 +50,14 @@ static struct workqueue_struct *vibrator_workqueue;
 static void __iomem *virt_base;
 static struct msm_xo_voter *vib_clock;
 
-#define MMSS_CC_GP1_CMD_RCGR(x) (void __iomem *)(virt_bases_v + (x))
+#define MMSS_CC_GP1_CMD_RCGR(x) (void __iomem *)(virt_base + (x))
 
 #define MMSS_CC_PWM_SET		0xFD8C3450
 #define MMSS_CC_PWM_SIZE	SZ_1K
 #define DEVICE_NAME		"msm8974_pwm_vibrator"
 
 #define MMSS_CC_N_DEFAULT	41
+#define MMSS_CC_D_HALF		(MMSS_CC_N_DEFAULT >> 1)
 
 static DEFINE_MUTEX(vib_lock);
 
@@ -233,7 +234,7 @@ static int vibrator_pwm_set(int enable, int amp, int n_value)
 	pr_debug("%s: amp %d, value %d\n", __func__, amp, n_value);
 
 	d_val = ((MMSS_CC_N_DEFAULT * amp) >> 7);
-	virt_bases_v = ioremap(MMSS_CC_PWM_SET, MMSS_CC_PWM_SIZE);
+	virt_base = ioremap(MMSS_CC_PWM_SET, MMSS_CC_PWM_SIZE);
 	if (enable) {
 		REG_WRITEL(
 			((~(d_val << 1)) & 0xffU),	/* D[7:0] */
