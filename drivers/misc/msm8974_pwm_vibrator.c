@@ -1,6 +1,6 @@
 /* msm8974_pwm_vibrator.c
  *
- * Copyright (C) 2009-2013 LGE, Inc.
+ * Copyright (C) 2009-2013 LGE, Inc., 2021 wlkmanist.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,6 +33,7 @@
 #include <linux/of.h>
 #include <linux/regulator/consumer.h>
 #include <linux/mutex.h>
+#include <mach/msm_xo.h>
 
 #include <mach/msm_iomap.h>
 
@@ -46,6 +47,7 @@ static struct workqueue_struct *vibrator_workqueue;
 
 /* gpio and clock control for vibrator */
 static void __iomem *virt_base;
+static struct msm_xo_voter *vib_clock;
 
 #define MMSS_CC_GP1_BASE(x) (void __iomem *)(virt_base + (x))
 #define REG_CMD_RCGR	0x00
@@ -106,6 +108,28 @@ struct timed_vibrator_data {
 
 static struct clk *cam_gp1_clk;
 
+static void vibrator_clock_init(void)
+{
+	/* Vote for XO clock */
+	vib_clock = msm_xo_get(MSM_XO_TCXO_D0, "vib_clock");
+	if (IS_ERR(vib_clock)) {
+		pr_warn("%s: Couldn't get TCXO_D0 vote for vibrator\n",
+				__func__);
+	}
+}
+
+static inline void vibrator_clock_on(void)
+{
+	if (msm_xo_mode_vote(vib_clock, MSM_XO_MODE_ON) < 0)
+		pr_warn("%s: Failed to vote for TCX0_D0_ON\n", __func__);
+}
+
+static inline void vibrator_clock_off(void)
+{
+	if (msm_xo_mode_vote(vib_clock, MSM_XO_MODE_OFF) < 0)
+		pr_warn("%s: Failed to vote for TCX0_D0_OFF\n", __func__);
+}
+
 static int vibrator_regulator_init(
 		struct platform_device *pdev,
 		struct timed_vibrator_data *vib)
@@ -141,8 +165,16 @@ static int vibrator_set_power(int enable,
 		ret = regulator_enable(vib->vdd_reg);
 		if (ret < 0)
 			pr_err("%s: vdd_reg->enable failed\n", __func__);
+		else {
+			ret = gpio_request(vib->motor_pwm_gpio, "motor_pwm");
+			if (ret < 0)
+				pr_warn("%s: gpio_request failed\n", __func__);
+			vibrator_clock_on();
+		}
 	} else {
 		if (regulator_is_enabled(vib->vdd_reg) > 0) {
+			vibrator_clock_off();
+			gpio_free(vib->motor_pwm_gpio);
 			ret = regulator_disable(vib->vdd_reg);
 			if (ret < 0)
 				pr_err("%s: vdd_reg->disable failed\n",
@@ -815,6 +847,8 @@ static int msm8974_pwm_vibrator_probe(struct platform_device *pdev)
 		pr_err("%s: vibrator_gpio_init failed\n", __func__);
 		return -ENODEV;
 	}
+
+	vibrator_clock_init();
 
 	virt_base = ioremap(MMSS_CC_PWM_SET, MMSS_CC_PWM_SIZE);
 	if (virt_base == NULL) {
