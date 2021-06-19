@@ -28,8 +28,9 @@
 #include <linux/reboot.h>
 #include <linux/syscalls.h>
 
-#define MSM_THERMAL_SAFE_DIFF			5
-#define MSM_THERMAL_POLLING_FREQ_PRESET	5
+#define MSM_THERMAL_SAFE_DIFF				5
+#define MSM_THERMAL_FAST_POLL_FREQ_PRESET	5
+#define MSM_THERMAL_SLOW_POLL_FREQ_PRESET	1
 
 /* Enable thermal throttlong logic		*/
 static bool __read_mostly enable_main			= true;
@@ -43,18 +44,24 @@ static long __read_mostly temp_threshold		= 70;
 /* Thermal limit (sync and power off)	*/
 static long __read_mostly temp_threshold_crit	= 110;
 
-static unsigned int __read_mostly polling_freq_preset =
-				MSM_THERMAL_POLLING_FREQ_PRESET;
+static long __read_mostly fast_poll_temp_offset = 20;
+
+static unsigned int __read_mostly fast_poll_freq_preset =
+				MSM_THERMAL_FAST_POLL_FREQ_PRESET;
+static unsigned int __read_mostly slow_poll_freq_preset =
+				MSM_THERMAL_SLOW_POLL_FREQ_PRESET;
 
 module_param(enable_main,			bool, 0644);
 module_param(enable_extreme, 		bool, 0444);
 module_param(temp_threshold, 		long, 0644);
 module_param(temp_threshold_crit, 	long, 0444);
-module_param(polling_freq_preset, 	uint, 0644);
+module_param(fast_poll_temp_offset,	long, 0644);
+module_param(fast_poll_freq_preset, uint, 0644);
+module_param(slow_poll_freq_preset, uint, 0644);
 
 static const unsigned int polling_val[] = {
-	/*   4,   5,   8,  10, 20, 25, 40, : HZ */
-	0, 250, 200, 125, 100, 50, 40, 25,
+	/*   4,   5,   8,  10, 20, 25, 40, 50, 100 : HZ */
+	0, 250, 200, 125, 100, 50, 40, 25, 20, 10,
 };
 
 struct thermal_info cpu_thermal_info = {
@@ -88,15 +95,18 @@ static struct msm_thermal_data msm_thermal_info;
 
 static struct delayed_work check_temp_work;
 
-inline unsigned long get_polling_interval_jiffies(void)
+inline unsigned long get_polling_interval_jiffies(unsigned int *preset)
 {
-	if (unlikely(!polling_freq_preset && polling_freq_preset > 7))
+	if (unlikely(*preset > sizeof(polling_val) / sizeof(unsigned int) - 1))
 	{
-		pr_info("%s: Restore polling_freq_preset to default", KBUILD_MODNAME);
-		polling_freq_preset = MSM_THERMAL_POLLING_FREQ_PRESET;
+		pr_err("%s: polling frequency preset is out of range", KBUILD_MODNAME);
+		*preset = min(*preset, sizeof(polling_val) / sizeof(unsigned int) - 1);
+	} else if (unlikely(!*preset)) {
+		pr_info("%s: set polling frequency to default", KBUILD_MODNAME);
+		*preset = MSM_THERMAL_FAST_POLL_FREQ_PRESET;
 	}
 
-	return msecs_to_jiffies(polling_val[polling_freq_preset]);
+	return msecs_to_jiffies(polling_val[*preset]);
 }
 
 static int msm_thermal_cpufreq_callback(struct notifier_block *nfb,
@@ -197,12 +207,12 @@ static void check_temp(struct work_struct *work)
 	}
 
 reschedule:
-	if (temp >= -3 * cpu_thermal_info.safe_diff)
+	if (temp >= -fast_poll_temp_offset)
 		schedule_delayed_work_on(0, &check_temp_work,
-						get_polling_interval_jiffies());
+						get_polling_interval_jiffies(&fast_poll_freq_preset));
 	else
 		schedule_delayed_work_on(0, &check_temp_work,
-						msecs_to_jiffies(250));
+						get_polling_interval_jiffies(&slow_poll_freq_preset));
 }
 
 static int __devinit msm_thermal_dev_probe(struct platform_device *pdev)
